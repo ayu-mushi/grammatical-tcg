@@ -49,7 +49,7 @@ pick hands ix  = map (hands!!) ix
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
-  let port = maybe 8000 read $ lookup "PORT" env
+  let port = maybe 8080 read $ lookup "PORT" env
   scotty port $ do
     get "/" $ do
       html $ "Hello, Heroku!"
