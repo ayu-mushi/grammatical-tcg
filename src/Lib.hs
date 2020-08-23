@@ -54,8 +54,8 @@ someFunc = do
     get "/" $ do
       html $ "Hello, Heroku!"
 
-  deck <- initDeck
+  {- deck <- initDeck
   print deck
   line <- map read . words <$> getLine :: IO [Int]
-  print $ pick deck line
+  print $ pick deck line -}
   return ()
