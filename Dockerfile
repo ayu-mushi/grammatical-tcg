@@ -2,7 +2,7 @@ FROM haskell:8.8.3
 
 WORKDIR /work
 
-COPY stack.yaml web-service.cabal /work/
+COPY stack.yaml package.yaml /work/
 RUN stack build --only-dependencies
 
 COPY . /work/
