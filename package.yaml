@@ -24,6 +24,7 @@ dependencies:
 - parsec ==3.1.14.0
 - random
 - mtl
+- scotty
 
 library:
   source-dirs: src

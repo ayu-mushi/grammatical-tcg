@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings#-}
 module Lib
     ( someFunc
     ) where
@@ -6,6 +7,8 @@ import Text.Parsec as Parsec
 import Control.Monad (forM, forM_, replicateM, replicateM_)
 import System.Random
 import qualified Control.Monad.State as S
+import Web.Scotty as Scotty
+import System.Environment (getEnvironment)
 
 data Card = F | X deriving (Enum,Show)
 
@@ -45,6 +48,12 @@ pick hands ix  = map (hands!!) ix
 
 someFunc :: IO ()
 someFunc = do
+  env <- getEnvironment
+  let port = maybe 8000 read $ lookup "PORT" env
+  scotty port $ do
+    get "/" $ do
+      html $ "Hello, Heroku!"
+
   deck <- initDeck
   print deck
   line <- map read . words <$> getLine :: IO [Int]
