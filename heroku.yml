@@ -2,4 +2,4 @@ build:
   docker:
     web: Dockerfile
 run:
-  web: grammatical-card-game-exe
+  web: grammatical-tcg-hs-exe
