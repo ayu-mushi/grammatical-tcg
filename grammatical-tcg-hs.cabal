@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0381755f9bdf1d9d6d23bc3dd084e3b919530cd668bbd0e5a73a599d423ac778
+-- hash: f17406ac67cd472082100f1f34898e409a15f64859ca3381bb1553a6b294eeb2
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -35,9 +35,9 @@ library
   build-depends:
       base >=4.7 && <5
     , mtl
-    , parsec ==3.1.14.0
     , random
     , scotty
+    , vector
   default-language: Haskell2010
 
 executable grammatical-tcg-hs-exe
@@ -51,9 +51,9 @@ executable grammatical-tcg-hs-exe
       base >=4.7 && <5
     , grammatical-tcg-hs
     , mtl
-    , parsec ==3.1.14.0
     , random
     , scotty
+    , vector
   default-language: Haskell2010
 
 test-suite grammatical-tcg-hs-test
@@ -68,7 +68,7 @@ test-suite grammatical-tcg-hs-test
       base >=4.7 && <5
     , grammatical-tcg-hs
     , mtl
-    , parsec ==3.1.14.0
     , random
     , scotty
+    , vector
   default-language: Haskell2010

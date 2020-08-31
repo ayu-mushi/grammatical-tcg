@@ -3,18 +3,21 @@
 module Lib
     ( someFunc
     ) where
-import Text.Parsec as Parsec
-import Control.Monad (forM, forM_, replicateM, replicateM_)
+import Control.Monad (forM, forM_, replicateM, replicateM_, guard, mzero, mplus)
 import System.Random
 import qualified Control.Monad.State as S
 import Web.Scotty as Scotty
 import System.Environment (getEnvironment)
+import qualified Data.Vector as V
 
-data Card = F | X deriving (Enum,Show)
+data Card = F | X deriving (Enum,Show,Eq)
 
-data GameState = GameState {
-  _hands :: [Card],
-  _deck :: [Card]
+data Tree a = Node (Tree a) (Tree a) | Leaf a deriving (Show, Eq)
+
+data PlayerState = PlayerState {
+  _hands :: [Card]
+  , _deck :: [Card]
+  , _field :: V.Vector (Tree Card)
   }
 
 initDeck :: IO [Card]
@@ -30,8 +33,8 @@ initDeck = do
 
 draw :: (Monad m) => S.StateT [Card] m Card
 draw = do
-  deck <- S.get
-  case deck of
+  c <- S.get
+  case c of
     [] -> error "game over"
     (x:xs) -> do
       S.put xs
@@ -40,22 +43,51 @@ draw = do
 initialDraw :: (Monad m) => S.StateT [Card] m [Card]
 initialDraw = replicateM 5 draw
 
-parse :: Parsec Card u [Card]
-parse = undefined
+
+type Parser a = S.StateT [Card] [] a
+
+oneCard :: Card -> S.StateT [Card] [] Card
+oneCard one = do
+  c <- S.get
+  case c of
+       [] -> mzero
+       (x:xs) -> do
+         guard (one==x)
+         S.put xs
+         return x
+
+parsePred :: Parser (Tree Card)
+parsePred = fmap Leaf $ oneCard F
+
+parseNoun :: Parser (Tree Card)
+parseNoun = fmap Leaf $ oneCard X
+
+parseSentence :: Parser (Tree Card)
+parseSentence = do
+  f <- parsePred
+  x <- parseNoun
+  return (Node f x)
 
 pick :: [Card] -> [Int] -> [Card]
-pick hands ix  = map (hands!!) ix
+pick hands ix = map (hands!!) ix
 
 someFunc :: IO ()
 someFunc = do
-  env <- getEnvironment
-  let port = maybe 8080 read $ lookup "PORT" env
+  {-env <- getEnvironment
+  let port = maybe 8000 read $ lookup "PORT" env
   scotty port $ do
     get "/" $ do
-      html $ "Hello, Heroku!"
+      html $ "Hello, Heroku!"-}
 
-  {- deck <- initDeck
+  deck <- initDeck
   print deck
   line <- map read . words <$> getLine :: IO [Int]
-  print $ pick deck line -}
+  print $ pick deck line
+  let choices = S.runStateT parseSentence (pick deck line)
+  print choices
+  ch <- read <$> getLine :: IO Int
+  print $ choices !! ch
   return ()
+
+
+  -- カードの名称と効果を記述するDSL
