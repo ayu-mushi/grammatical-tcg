@@ -9,16 +9,30 @@ import qualified Control.Monad.State as S
 import Web.Scotty as Scotty
 import System.Environment (getEnvironment)
 import qualified Data.Vector as V
+import Data.Vector.Generic.Lens (vectorIx)
+import Control.Lens
+import qualified Data.Text.Lazy as LText (pack, unpack)
 
-data Card = F | X deriving (Enum,Show,Eq)
+-- websocket message は Show, Read で
 
-data Tree a = Node (Tree a) (Tree a) | Leaf a deriving (Show, Eq)
+data Card = F | X
+  deriving (Enum,Show,Eq)
+
+data Tree a = Node (Tree a) (Tree a) | Leaf a
+  deriving (Show, Eq)
 
 data PlayerState = PlayerState {
   _hands :: [Card]
   , _deck :: [Card]
-  , _field :: V.Vector (Tree Card)
-  }
+  , _field :: V.Vector (Maybe (Tree Card))
+  } deriving (Show,Eq)
+makeLenses ''PlayerState
+
+data Game = Game{
+  _opponent :: PlayerState
+  , _myself :: PlayerState
+  } deriving (Show,Eq)
+makeLenses ''Game
 
 initDeck :: IO [Card]
 initDeck = do
@@ -26,23 +40,41 @@ initDeck = do
     r <- randomRIO (0, 1) :: IO Int
     return $ toEnum r :: IO Card
 
+
 -- カードを配る
 -- 入力
 -- 手札を数字で指定
 -- パース
 
-draw :: (Monad m) => S.StateT [Card] m Card
+draw :: (Monad m) => S.StateT PlayerState m Card
 draw = do
-  c <- S.get
-  case c of
-    [] -> error "game over"
+  d <- (^. deck) <$> S.get
+  case d of
+    [] -> error "deck empty"
     (x:xs) -> do
-      S.put xs
+      deck .= xs
       return x
 
-initialDraw :: (Monad m) => S.StateT [Card] m [Card]
+initialDraw :: (Monad m) => S.StateT PlayerState m [Card]
 initialDraw = replicateM 5 draw
 
+initialPlayer :: IO PlayerState
+initialPlayer = do
+  d <- initDeck
+  return $ PlayerState {
+    _hands=[]
+    ,_deck=d
+    ,_field=V.replicate 5 Nothing
+    }
+
+initialGame :: IO Game
+initialGame = do
+  m <- initialPlayer
+  o <- initialPlayer
+  return $ Game {
+    _opponent = o
+    , _myself = m
+    }
 
 type Parser a = S.StateT [Card] [] a
 
@@ -52,7 +84,7 @@ oneCard one = do
   case c of
        [] -> mzero
        (x:xs) -> do
-         guard (one==x)
+         guard $ one == x
          S.put xs
          return x
 
@@ -71,22 +103,39 @@ parseSentence = do
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix
 
+printAsText :: (Show s) => s -> ActionM ()
+printAsText = text . LText.pack . show
+
+gamePlay :: S.StateT Game ActionM ()
+gamePlay = do
+  deck <- (^. (myself . deck)) <$> S.get
+  S.lift $ printAsText deck
+  line <- S.lift . S.lift $ map read . words <$> getLine :: S.StateT Game ActionM [Int]
+  S.lift $ printAsText $ pick deck line
+  let choices = S.runStateT parseSentence (pick deck line)
+  S.lift $ printAsText $ choices
+  ch <- S.lift . S.lift $ read <$> getLine :: S.StateT Game ActionM Int
+
+  S.lift $ text "where to place?"
+  n <- S.lift . S.lift $ read <$> getLine :: S.StateT Game ActionM Int
+  (myself . field) %= (V.// ([(n, (Just $ fst $ choices !! ch))]))
+  gameState <- S.get
+  S.lift $ printAsText gameState
+
+
+
+
 someFunc :: IO ()
 someFunc = do
-  {-env <- getEnvironment
+  env <- getEnvironment
   let port = maybe 8000 read $ lookup "PORT" env
   scotty port $ do
     get "/" $ do
-      html $ "Hello, Heroku!"-}
+      html $ "Hello, Heroku!"
+      game <- S.lift initialGame
+      S.runStateT gamePlay game
+      return ()
 
-  deck <- initDeck
-  print deck
-  line <- map read . words <$> getLine :: IO [Int]
-  print $ pick deck line
-  let choices = S.runStateT parseSentence (pick deck line)
-  print choices
-  ch <- read <$> getLine :: IO Int
-  print $ choices !! ch
   return ()
 
 

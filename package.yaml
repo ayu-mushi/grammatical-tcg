@@ -26,6 +26,8 @@ dependencies:
 - mtl
 - scotty
 - vector
+- lens
+- text
 
 library:
   source-dirs: src
