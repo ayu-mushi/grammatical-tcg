@@ -1,6 +1,6 @@
 FROM haskell:8.8.3
 ADD dummyfile /data/
-CMD git clone https://github.com/ayu-mushi/grammatical-tcg
+RUN git clone https://github.com/ayu-mushi/grammatical-tcg
 WORKDIR grammatical-tcg
 RUN stack build && stack install
 CMD grammatical-tcg-hs-exe -p $PORT
