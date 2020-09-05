@@ -1,4 +1,4 @@
 #!/bin/bash
-docker build -t grammatical-tcg -f Dockerfile2 .
+docker build --no-cache -t grammatical-tcg -f Dockerfile2 .
 docker run -it -d --name grammatical-tcg-1 -p 80:8000 grammatical-tcg
 docker logs grammatical-tcg-1
