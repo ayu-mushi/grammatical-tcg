@@ -8,4 +8,4 @@ RUN stack build --only-dependencies
 COPY . /work/
 RUN stack build && stack install
 
-CMD web-service-exe -p $PORT
+CMD grammatical-tcg-hs-exe -p $PORT

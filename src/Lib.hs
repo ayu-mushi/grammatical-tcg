@@ -6,12 +6,10 @@ module Lib
 import Control.Monad (forM, forM_, replicateM, replicateM_, guard, mzero, mplus)
 import System.Random
 import qualified Control.Monad.State as S
-import Web.Scotty as Scotty
 import System.Environment (getEnvironment)
 import qualified Data.Vector as V
 import Data.Vector.Generic.Lens (vectorIx)
 import Control.Lens
-import qualified Data.Text.Lazy as LText (pack, unpack)
 
 -- websocket message は Show, Read で
 
@@ -103,10 +101,7 @@ parseSentence = do
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix
 
-printAsText :: (Show s) => s -> ActionM ()
-printAsText = text . LText.pack . show
-
-gamePlay :: S.StateT Game ActionM ()
+{- gamePlay :: S.StateT Game ActionM ()
 gamePlay = do
   deck <- (^. (myself . deck)) <$> S.get
   S.lift $ printAsText deck
@@ -120,7 +115,7 @@ gamePlay = do
   n <- S.lift . S.lift $ read <$> getLine :: S.StateT Game ActionM Int
   (myself . field) %= (V.// ([(n, (Just $ fst $ choices !! ch))]))
   gameState <- S.get
-  S.lift $ printAsText gameState
+  S.lift $ printAsText gameState -}
 
 
 
@@ -129,12 +124,6 @@ someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
   let port = maybe 8000 read $ lookup "PORT" env
-  scotty port $ do
-    get "/" $ do
-      html $ "Hello, Heroku!"
-      game <- S.lift initialGame
-      S.runStateT gamePlay game
-      return ()
 
   return ()
 
