@@ -28,6 +28,11 @@ dependencies:
 - vector
 - lens
 - text
+- websockets
+- warp
+- wai-websockets
+- wai
+- http-types
 
 library:
   source-dirs: src

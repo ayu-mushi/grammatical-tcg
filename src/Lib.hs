@@ -11,6 +11,19 @@ import qualified Data.Vector as V
 import Data.Vector.Generic.Lens (vectorIx)
 import Control.Lens
 
+import Control.Exception (finally)
+import Control.Monad(forever)
+import Data.Text (Text)
+import Network.HTTP.Types (hContentType)
+import Network.HTTP.Types.Status (status200)
+import Network.Wai (Application, responseFile)
+import Network.Wai.Handler.WebSockets (websocketsOr)
+import Data.IORef
+
+
+import qualified Network.Wai.Handler.Warp as Warp
+import qualified Network.WebSockets as WS
+
 -- websocket message は Show, Read で
 
 data Card = F | X
@@ -119,11 +132,41 @@ gamePlay = do
 
 
 
+type Client = (Int, WS.Connection)
+
+broadcast :: Text -> [Client] -> IO ()
+broadcast msg = mapM_ (flip WS.sendTextData msg) . map snd
+
+addClient :: WS.Connection -> [Client] -> ([Client], Int)
+addClient conn cs = let i = if null cs then 0 else maximum (map fst cs) + 1
+                    in  ((i, conn):cs, i)
+
+removeClient :: Int -> [Client] -> ([Client], ())
+removeClient i cs = (filter (\c -> fst c /= i) cs, ())
+
+chat :: IORef [Client] -> WS.ServerApp
+chat ref pending = do
+    conn <- WS.acceptRequest pending
+    identifier <- atomicModifyIORef ref (addClient conn)
+    flip finally (disconnect identifier) $ forever $ do
+        msg <- WS.receiveData conn
+        conns <- readIORef ref
+        broadcast msg conns
+    where
+    disconnect identifier = atomicModifyIORef ref (removeClient identifier)
+
+app :: Application
+app req respond = respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
+
 
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
   let port = maybe 8000 read $ lookup "PORT" env
+  let setting = Warp.setPort port Warp.defaultSettings
+  putStrLn $ "Your server is listening at http://localhost:" ++ show port ++ "/"
+  ref <- newIORef []
+  Warp.runSettings setting $ websocketsOr WS.defaultConnectionOptions (chat ref) app
 
   return ()
 

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fbc7302ccac623e2d47a7a41bcf32ca3ce5f8907f0efa3222c8c4335ea3ab0c7
+-- hash: 0c25e49ad52963e91490b57d67b4f741fb985a55ec6b94020216424f19041e69
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -34,12 +34,17 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , http-types
     , lens
     , mtl
     , random
     , scotty
     , text
     , vector
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
   default-language: Haskell2010
 
 executable grammatical-tcg-hs-exe
@@ -52,12 +57,17 @@ executable grammatical-tcg-hs-exe
   build-depends:
       base >=4.7 && <5
     , grammatical-tcg-hs
+    , http-types
     , lens
     , mtl
     , random
     , scotty
     , text
     , vector
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
   default-language: Haskell2010
 
 test-suite grammatical-tcg-hs-test
@@ -71,10 +81,15 @@ test-suite grammatical-tcg-hs-test
   build-depends:
       base >=4.7 && <5
     , grammatical-tcg-hs
+    , http-types
     , lens
     , mtl
     , random
     , scotty
     , text
     , vector
+    , wai
+    , wai-websockets
+    , warp
+    , websockets
   default-language: Haskell2010
