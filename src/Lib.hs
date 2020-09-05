@@ -162,7 +162,7 @@ app req respond = respond $ responseFile status200 [(hContentType, "text/html")]
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
-  let port = maybe 8000 read $ lookup "PORT" env
+  let port = maybe 80 read $ lookup "PORT" env
   let setting = Warp.setPort port Warp.defaultSettings
   putStrLn $ "Your server is listening at http://localhost:" ++ show port ++ "/"
   ref <- newIORef []
