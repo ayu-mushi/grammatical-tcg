@@ -5,12 +5,15 @@
         <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     </head>
     <body>
+
         <form><input type="text"/></form>
         <div></div>
+
+
         <script>
             try {
-              //var ws = new WebSocket('ws://localhost:8000/');
-              var ws = new WebSocket('ws://153.127.56.158/');
+              var ws = new WebSocket('ws://localhost:8000/');
+              //^var ws = new WebSocket('ws://153.127.56.158/');
             } catch (err) {
               console.error(err);
             }

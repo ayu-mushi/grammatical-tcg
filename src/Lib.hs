@@ -1,19 +1,23 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings#-}
+{-# LANGUAGE RankNTypes #-}
 module Lib
     ( someFunc
     ) where
 import Control.Monad (forM, forM_, replicateM, replicateM_, guard, mzero, mplus)
+import Control.Monad.Trans(MonadIO, lift,liftIO)
 import System.Random
 import qualified Control.Monad.State as S
 import System.Environment (getEnvironment)
 import qualified Data.Vector as V
 import Data.Vector.Generic.Lens (vectorIx)
 import Control.Lens
+import Data.Maybe(fromJust)
+import Control.Concurrent(threadDelay)
 
 import Control.Exception (finally)
 import Control.Monad(forever)
-import Data.Text (Text)
+import qualified Data.Text as T(Text,pack, unpack)
 import Network.HTTP.Types (hContentType)
 import Network.HTTP.Types.Status (status200)
 import Network.Wai (Application, responseFile)
@@ -114,58 +118,110 @@ parseSentence = do
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix
 
-{- gamePlay :: S.StateT Game ActionM ()
-gamePlay = do
-  deck <- (^. (myself . deck)) <$> S.get
-  S.lift $ printAsText deck
-  line <- S.lift . S.lift $ map read . words <$> getLine :: S.StateT Game ActionM [Int]
-  S.lift $ printAsText $ pick deck line
-  let choices = S.runStateT parseSentence (pick deck line)
-  S.lift $ printAsText $ choices
-  ch <- S.lift . S.lift $ read <$> getLine :: S.StateT Game ActionM Int
-
-  S.lift $ text "where to place?"
-  n <- S.lift . S.lift $ read <$> getLine :: S.StateT Game ActionM Int
-  (myself . field) %= (V.// ([(n, (Just $ fst $ choices !! ch))]))
-  gameState <- S.get
-  S.lift $ printAsText gameState -}
+-- とりあえずテキストで通信
+-- とりあえず1人
 
 
 
-type Client = (Int, WS.Connection)
 
-broadcast :: Text -> [Client] -> IO ()
-broadcast msg = mapM_ (flip WS.sendTextData msg) . map snd
+type Client = WS.Connection
 
-addClient :: WS.Connection -> [Client] -> ([Client], Int)
-addClient conn cs = let i = if null cs then 0 else maximum (map fst cs) + 1
-                    in  ((i, conn):cs, i)
+broadcast :: ClientValue -> T.Text -> IO ()
+broadcast (ClientValue {_sente= Just s, _gote=Just g}) msg = do
+  WS.sendTextData s msg
+  WS.sendTextData g msg
+broadcast msg _ = error "not not"
 
-removeClient :: Int -> [Client] -> ([Client], ())
-removeClient i cs = (filter (\c -> fst c /= i) cs, ())
+addClient :: WS.Connection -> ClientValue -> (ClientValue, Bool)
+addClient conn record@(ClientValue {_sente= Nothing, _gote =Nothing}) =
+  ((record {_sente=Just conn}), True)
+addClient conn record@(ClientValue {_sente= Just _, _gote =Nothing}) =
+  (record { _gote = Just conn }, False)
+addClient conn record@(ClientValue {_sente= Just _, _gote =Just _}) =
+  error "not yes"
 
-chat :: IORef [Client] -> WS.ServerApp
+defaultClient :: ClientValue
+defaultClient = ClientValue {_sente=Nothing, _gote=Nothing}
+
+removeClient :: Bool -> ClientValue -> (ClientValue, ())
+removeClient True cs = (defaultClient, ())
+removeClient False cs = (defaultClient, ())
+
+data ClientValue = ClientValue {
+  _sente :: Maybe Client
+  , _gote :: Maybe Client
+  }
+makeLenses ''ClientValue
+
+select :: Bool -> Lens' ClientValue (Maybe Client)
+select True = sente
+select False = gote
+
+data ComingMessage = Dummy
+  deriving (Show, Read)
+data GoingMessage = Message String
+  deriving (Show, Read)
+
+chat :: IORef ClientValue -> WS.ServerApp
 chat ref pending = do
-    conn <- WS.acceptRequest pending
-    identifier <- atomicModifyIORef ref (addClient conn)
-    flip finally (disconnect identifier) $ forever $ do
-        msg <- WS.receiveData conn
-        conns <- readIORef ref
-        broadcast msg conns
-    where
-    disconnect identifier = atomicModifyIORef ref (removeClient identifier)
+  conn <- WS.acceptRequest pending
+  identifier <- atomicModifyIORef ref (addClient conn)
+  flip finally (disconnect identifier) $ forever $ do
+    conns <- readIORef ref
+    case conns of
+      ClientValue { _sente=Just t, _gote = Just _ } -> do
+        game <- initialGame
+        S.runStateT (gamePlay identifier conns) game
+        return ()
+      ClientValue _ _ -> do
+        threadDelay $ 2 * 1000
+        return ()
+  where
+    disconnect player = atomicModifyIORef ref (removeClient player)
 
 app :: Application
 app req respond = respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
+
+-- 対称性
+
+printAsText :: (MonadIO m) => Bool -> ClientValue -> String -> m ()
+printAsText b clients str = liftIO $ WS.sendTextData (fromJust $ clients ^. (select b)) $ T.pack str
+
+gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
+gamePlay turn clients = do
+  liftIO $ broadcast clients $ T.pack "Game start"
+
+  deck <- (^. (myself . deck)) <$> S.get
+
+  printAsText turn clients $ show deck
+  line <- S.lift $ fmap ((map read . words) . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
+
+
+
+  printAsText turn clients $ show $ pick deck line
+  let choices = S.runStateT parseSentence (pick deck line)
+
+
+
+  printAsText turn clients $ show $ choices
+  ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
+
+  printAsText turn clients "where to place?"
+  n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
+  (myself . field) %= (V.// ([(n, (Just $ fst $ choices !! ch))]))
+
+
+  gameState <- S.get
+  liftIO $ broadcast clients $ T.pack $ show gameState
 
 
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
-  let port = maybe 80 read $ lookup "PORT" env
+  let port = maybe 8000 read $ lookup "PORT" env
   let setting = Warp.setPort port Warp.defaultSettings
   putStrLn $ "Your server is listening at http://localhost:" ++ show port ++ "/"
-  ref <- newIORef []
+  ref <- newIORef defaultClient
   Warp.runSettings setting $ websocketsOr WS.defaultConnectionOptions (chat ref) app
 
   return ()
