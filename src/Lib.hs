@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings#-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Lib
     ( someFunc
     ) where
@@ -14,13 +15,19 @@ import Data.Vector.Generic.Lens (vectorIx)
 import Control.Lens
 import Data.Maybe(fromJust)
 import Control.Concurrent(threadDelay)
+import qualified Data.ByteString.Lazy as LB(toStrict)
+import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
+import Math.Combinat.Trees.Binary
+
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.TH as Aeson
 
 import Control.Exception (finally)
 import Control.Monad(forever)
 import qualified Data.Text as T(Text,pack, unpack)
 import Network.HTTP.Types (hContentType)
 import Network.HTTP.Types.Status (status200)
-import Network.Wai (Application, responseFile)
+import Network.Wai (Application, responseFile, pathInfo)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Data.IORef
 
@@ -31,23 +38,32 @@ import qualified Network.WebSockets as WS
 -- websocket message は Show, Read で
 
 data Card = F | X
-  deriving (Enum,Show,Eq)
+  deriving (Enum,Show,Eq,Read)
 
 data Tree a = Node (Tree a) (Tree a) | Leaf a
-  deriving (Show, Eq)
+  deriving (Show, Eq,Read)
 
 data PlayerState = PlayerState {
   _hands :: [Card]
   , _deck :: [Card]
   , _field :: V.Vector (Maybe (Tree Card))
-  } deriving (Show,Eq)
+  } deriving (Show,Eq,Read)
 makeLenses ''PlayerState
 
 data Game = Game{
   _opponent :: PlayerState
   , _myself :: PlayerState
-  } deriving (Show,Eq)
+  } deriving (Show,Eq, Read)
 makeLenses ''Game
+
+$(Aeson.deriveJSON Aeson.defaultOptions ''Card)
+$(Aeson.deriveJSON Aeson.defaultOptions ''Tree)
+$(Aeson.deriveJSON Aeson.defaultOptions ''PlayerState)
+$(Aeson.deriveJSON Aeson.defaultOptions ''Game)
+
+selectPlayer :: Bool -> Lens' Game PlayerState
+selectPlayer True = myself
+selectPlayer False = opponent
 
 initDeck :: IO [Card]
 initDeck = do
@@ -126,12 +142,6 @@ pick hands ix = map (hands!!) ix
 
 type Client = WS.Connection
 
-broadcast :: ClientValue -> T.Text -> IO ()
-broadcast (ClientValue {_sente= Just s, _gote=Just g}) msg = do
-  WS.sendTextData s msg
-  WS.sendTextData g msg
-broadcast msg _ = error "not not"
-
 addClient :: WS.Connection -> ClientValue -> (ClientValue, Bool)
 addClient conn record@(ClientValue {_sente= Nothing, _gote =Nothing}) =
   ((record {_sente=Just conn}), True)
@@ -144,8 +154,8 @@ defaultClient :: ClientValue
 defaultClient = ClientValue {_sente=Nothing, _gote=Nothing}
 
 removeClient :: Bool -> ClientValue -> (ClientValue, ())
-removeClient True cs = (defaultClient, ())
-removeClient False cs = (defaultClient, ())
+removeClient True cs = error "disconnnnnected"
+removeClient False cs = error "disconnnnnected"
 
 data ClientValue = ClientValue {
   _sente :: Maybe Client
@@ -153,66 +163,87 @@ data ClientValue = ClientValue {
   }
 makeLenses ''ClientValue
 
-select :: Bool -> Lens' ClientValue (Maybe Client)
-select True = sente
-select False = gote
+selectClient :: Bool -> Lens' ClientValue (Maybe Client)
+selectClient True = sente
+selectClient False = gote
 
-data ComingMessage = Dummy
+data ComingMessage = Dummy | Select Int
   deriving (Show, Read)
-data GoingMessage = Message String
+data GoingMessage = Message String | Refresh Game | Choice [(Tree Card)]
   deriving (Show, Read)
 
-chat :: IORef ClientValue -> WS.ServerApp
-chat ref pending = do
+$(Aeson.deriveJSON Aeson.defaultOptions ''ComingMessage)
+$(Aeson.deriveJSON Aeson.defaultOptions ''GoingMessage)
+
+startGame :: IORef ClientValue -> WS.ServerApp
+startGame ref pending = do
   conn <- WS.acceptRequest pending
   identifier <- atomicModifyIORef ref (addClient conn)
-  flip finally (disconnect identifier) $ forever $ do
-    conns <- readIORef ref
-    case conns of
-      ClientValue { _sente=Just t, _gote = Just _ } -> do
-        game <- initialGame
-        S.runStateT (gamePlay identifier conns) game
-        return ()
-      ClientValue _ _ -> do
-        threadDelay $ 2 * 1000
-        return ()
+  if identifier then
+    flip finally (disconnect identifier) $ forever $ do
+      conns <- readIORef ref
+      case conns of
+        ClientValue { _sente=Just _, _gote = Just _ } -> do
+          liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
+          game <- initialGame
+
+          S.runStateT (gameLoop identifier conns) game
+          return ()
+        ClientValue _ _ -> do
+          threadDelay $ 20 * 1000
+          return ()
+  else flip finally (disconnect identifier) $ forever $ do
+    threadDelay $ 20 * 1000
   where
     disconnect player = atomicModifyIORef ref (removeClient player)
+    gameLoop identifier conns = do
+      gamePlay identifier conns
+      gamePlay (not identifier) conns
+      gameLoop identifier conns
+
+toJSONText :: (Aeson.ToJSON j) => j -> T.Text
+toJSONText = Text.decodeUtf8 . LB.toStrict . Aeson.encode
 
 app :: Application
-app req respond = respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
+app req respond =
+  if pathInfo req == [] then
+    respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
+  else if pathInfo req == ["style.css"] then
+    respond $ responseFile status200 [(hContentType, "text/css")] "style.css" Nothing
+  else
+    respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
 
 -- 対称性
 
-printAsText :: (MonadIO m) => Bool -> ClientValue -> String -> m ()
-printAsText b clients str = liftIO $ WS.sendTextData (fromJust $ clients ^. (select b)) $ T.pack str
+printAsText :: (MonadIO m, Aeson.ToJSON j) => Bool -> ClientValue -> j -> m ()
+printAsText b clients str = liftIO $ WS.sendTextData (fromJust $ clients ^. (selectClient b)) $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode str
+
+broadcast :: ClientValue -> T.Text -> IO ()
+broadcast clients msg = do
+  liftIO $ WS.sendTextData (fromJust $ clients ^. (selectClient True)) $ msg
+  liftIO $ WS.sendTextData (fromJust $ clients ^. (selectClient False)) $ msg
+
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
-gamePlay turn clients = do
-  liftIO $ broadcast clients $ T.pack "Game start"
-
+gamePlay identifier clients = do
   deck <- (^. (myself . deck)) <$> S.get
 
-  printAsText turn clients $ show deck
-  line <- S.lift $ fmap ((map read . words) . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
+  printAsText identifier clients $ Message $ show deck
+  line <- S.lift $ fmap ((map read . words) . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
+  printAsText identifier clients $ Message $ show $ pick deck line
+  let choices = S.evalStateT parseSentence (pick deck line)
 
+  printAsText identifier clients $ Choice choices
+  ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
-  printAsText turn clients $ show $ pick deck line
-  let choices = S.runStateT parseSentence (pick deck line)
-
-
-
-  printAsText turn clients $ show $ choices
-  ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
-
-  printAsText turn clients "where to place?"
-  n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.sente)
-  (myself . field) %= (V.// ([(n, (Just $ fst $ choices !! ch))]))
+  printAsText identifier clients $ Message "where to place?"
+  n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
+  ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ choices !! ch))]))
 
 
   gameState <- S.get
-  liftIO $ broadcast clients $ T.pack $ show gameState
+  liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
 
 someFunc :: IO ()
@@ -222,7 +253,7 @@ someFunc = do
   let setting = Warp.setPort port Warp.defaultSettings
   putStrLn $ "Your server is listening at http://localhost:" ++ show port ++ "/"
   ref <- newIORef defaultClient
-  Warp.runSettings setting $ websocketsOr WS.defaultConnectionOptions (chat ref) app
+  Warp.runSettings setting $ websocketsOr WS.defaultConnectionOptions (startGame ref) app
 
   return ()
 

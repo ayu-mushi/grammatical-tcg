@@ -3,33 +3,66 @@
     <head>
         <meta charset="UTF-8">
         <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css">
     </head>
     <body>
 
-        <form><input type="text"/></form>
-        <div></div>
+      <div id="hands"></div>
+      <div id="field"></div>
+      <div id="where_to_place"></div>
+      <div id="select_reading"></div>
+      <div id="console"></div>
+
+      <form><input type="text"/></form>
 
 
         <script>
-            try {
-              var ws = new WebSocket('ws://localhost:8000/');
-              //^var ws = new WebSocket('ws://153.127.56.158/');
-            } catch (err) {
-              console.error(err);
-            }
+try {
+  var ws = new WebSocket('ws://localhost:8000/');
+  //var ws = new WebSocket('ws://153.127.56.158/');
+} catch (err) {
+  console.error(err);
+}
 
-            $("form").submit(function(){
-                ws.send($('input').val());
-                $('input').val('');
-                return false;
-            });
-            setInterval(function(){
-              ws.send("dummy");
-            }, 25000);
+$("form").submit(function(){
+    ws.send($('input').val());
+    $('input').val('');
+    return false;
+});
+/* setInterval(function(){
+  ws.send("dummy");
+}, 25000); */
 
-            ws.onmessage = function (msg) {
-                $('div').prepend(msg.data + '<br>');
-            }
+/*function draw_syntax_tree(c, element){
+  if(c.tag == "Node"){
+    var root = $("<ul>").appendTo(element);
+    for(var i=0 ;i!=c.contents.length ;i++){
+      li = $("<li>").appendTo(root);
+      draw_syntax_tree(c.contents[i], li)
+    }
+  } else if(c.tag == "Leaf"){
+    element.html(c.contents);
+  } else {
+    element.html(c);
+  }
+}*/
+
+ws.onmessage = function (msg) {
+  var msg_analyzed = JSON.parse(msg.data);
+  if (msg_analyzed.tag == "Choice"){
+    $("#select_reading").empty();
+    ol = $("<div>").appendTo("#select_reading");
+
+    for (var i = 0; i != msg_analyzed.contents.length;i++){
+      li = $("<div class='syntax-tree'>").appendTo(ol);
+      draw_syntax_tree(msg_analyzed.contents[i], li);
+    }
+
+    //$("#select_reading.ol").append("<li></li>").append(draw_syntax_tree(msg_analyzed.contents));
+  }
+  console.log(msg_analyzed);
+    $('#console').prepend(msg.data + '<br>');
+}
         </script>
     </body>
 </html>

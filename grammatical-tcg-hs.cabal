@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0c25e49ad52963e91490b57d67b4f741fb985a55ec6b94020216424f19041e69
+-- hash: 0c2c45e978b9dacf262997a80d77f1d92c249c4ed523d138aa7f3831f0641b75
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -33,7 +33,10 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , combinat
     , http-types
     , lens
     , mtl
@@ -55,7 +58,10 @@ executable grammatical-tcg-hs-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , combinat
     , grammatical-tcg-hs
     , http-types
     , lens
@@ -79,7 +85,10 @@ test-suite grammatical-tcg-hs-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , combinat
     , grammatical-tcg-hs
     , http-types
     , lens

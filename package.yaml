@@ -33,6 +33,9 @@ dependencies:
 - wai-websockets
 - wai
 - http-types
+- aeson
+- bytestring
+- combinat
 
 library:
   source-dirs: src

@@ -39,7 +39,8 @@ packages:
 # - git: https://github.com/commercialhaskell/stack.git
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
-# extra-deps: []
+extra-deps:
+- combinat-0.2.9.0@sha256:3daed23a2376f8d9903dc2c1c3758f1f2a0527178c81023080507e5f5ddf5b7a,5107
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
