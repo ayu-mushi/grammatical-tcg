@@ -125,8 +125,10 @@ ws.onmessage = function (msg) {
 
     $(".hand-card").addClass("active");
     $(".hand-card").on("click", function(){
-      console.log($(".hand-card").index(this));
-      $("#monster-to-summon").append(" " +$(".hand-card").index(this));
+      var i = $(".hand-card").index(this);
+      if (!($("#monster-to-summon").html().split(" ").includes(i+""))){
+        $("#monster-to-summon").append(" " + i);
+      }
     });
   } else if (msg_analyzed.tag == "Refresh"){
     $(".zone").empty();

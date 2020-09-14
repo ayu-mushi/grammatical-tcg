@@ -40,6 +40,7 @@ makeLenses ''PlayerState
 data Game = Game{
   _opponent :: PlayerState
   , _myself :: PlayerState
+  , _turn_count :: Int
   } deriving (Show,Eq, Read)
 makeLenses ''Game
 
@@ -100,6 +101,7 @@ initialGame = do
   return $ Game {
     _opponent = o & S.execState initialDraw
     , _myself = m & S.execState initialDraw
+    , _turn_count=0
     }
 
 type Parser a = S.StateT [Card] [] a

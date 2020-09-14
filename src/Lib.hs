@@ -2,9 +2,8 @@
 {-# LANGUAGE OverloadedStrings#-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Lib
-    ( someFunc
-    ) where
+module Lib where
+
 import Control.Monad (forM, forM_, replicateM, replicateM_, guard, mzero, mplus)
 import Control.Monad.Trans(MonadIO, lift,liftIO)
 import System.Random
@@ -18,6 +17,7 @@ import Control.Concurrent(threadDelay)
 import qualified Data.ByteString.Lazy as LB(toStrict)
 import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
 import qualified Math.Combinat.Trees.Binary as Tree
+import qualified Data.List as L
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
@@ -100,11 +100,13 @@ startGame ref pending = do
       conns <- liftIO $ readIORef ref
       case conns of
         ClientValue { _sente=Just _, _gote = Just _ } -> do
-          liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
+          count <- (^. turn_count) <$> S.get
+          S.when (count==0) $ liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
           printAsText True conns $ YouAre True
           printAsText False conns $ YouAre False
 
           gameLoop identifier conns
+          turn_count += 1
           return ()
         ClientValue _ _ _ -> do
           liftIO $ threadDelay $ 20 * 1000
@@ -143,11 +145,14 @@ broadcast clients msg = do
   mapM (liftIO . (`WS.sendTextData` msg)) $ clients ^. audience
   return ()
 
+deleteElm :: Int -> [a] -> [a]
+deleteElm n xs = let (ys,zs) = splitAt n xs in ys ++ (tail zs)
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
 gamePlay identifier clients = do
   gameState <- S.get
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+  (selectPlayer identifier) %= S.execState drawToHand
   d <- (^. ((selectPlayer identifier) . deck)) <$> S.get
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
@@ -156,9 +161,16 @@ gamePlay identifier clients = do
   printAsText identifier clients RequireMonsterToSummon
 
   line <- S.lift $ fmap ((map read . words) . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
+
   printAsText identifier clients $ Message $ show $ line
   printAsText identifier clients $ Message $ show $ pick h line
   let choices = S.evalStateT parseSentence (pick h line)
+
+  (selectPlayer identifier) . hands .= ((`S.execState` h) $ S.forM_ (L.sortBy (flip compare) line) $ \i -> do
+    l <- S.get
+    S.put (deleteElm i l))
+  h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
+  printAsText identifier clients $ Hand h
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
   printAsText identifier clients $ Choice $ map (Tree.graphvizDotBinTree "aiueo") choices
