@@ -93,6 +93,7 @@ startGame :: IORef ClientValue -> WS.ServerApp
 startGame ref pending = do
   conn <- WS.acceptRequest pending
   identifier <- atomicModifyIORef ref (addClient conn)
+
   if identifier then
     flip finally (disconnect identifier) $ forever $ do
       conns <- readIORef ref
@@ -113,7 +114,9 @@ startGame ref pending = do
   where
     disconnect player = atomicModifyIORef ref (removeClient player)
     gameLoop identifier conns = do
+      conns <- liftIO $ readIORef ref
       gamePlay identifier conns
+      conns <- liftIO $ readIORef ref
       gamePlay (not identifier) conns
       gameLoop identifier conns
 
