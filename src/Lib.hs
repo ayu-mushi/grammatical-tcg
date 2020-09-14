@@ -47,26 +47,29 @@ import Game
 
 type Client = WS.Connection
 
+data ClientValue = ClientValue {
+  _sente :: Maybe Client
+  , _gote :: Maybe Client
+  , _audience :: [Client]
+  }
+makeLenses ''ClientValue
+
+
+
 addClient :: WS.Connection -> ClientValue -> (ClientValue, Bool)
 addClient conn record@(ClientValue {_sente= Nothing, _gote =Nothing}) =
   ((record {_sente=Just conn}), True)
 addClient conn record@(ClientValue {_sente= Just _, _gote =Nothing}) =
   (record { _gote = Just conn }, False)
 addClient conn record@(ClientValue {_sente= Just _, _gote =Just _}) =
-  error "not yes"
+  ((record & audience %~ (conn:), False))
 
 defaultClient :: ClientValue
-defaultClient = ClientValue {_sente=Nothing, _gote=Nothing}
+defaultClient = ClientValue {_sente=Nothing, _gote=Nothing, _audience=[]}
 
 removeClient :: Bool -> ClientValue -> (ClientValue, ())
 removeClient True cs = error "disconnnnnected"
 removeClient False cs = error "disconnnnnected"
-
-data ClientValue = ClientValue {
-  _sente :: Maybe Client
-  , _gote :: Maybe Client
-  }
-makeLenses ''ClientValue
 
 selectClient :: Bool -> Lens' ClientValue (Maybe Client)
 selectClient True = sente
@@ -102,7 +105,7 @@ startGame ref pending = do
 
           S.runStateT (gameLoop identifier conns) game
           return ()
-        ClientValue _ _ -> do
+        ClientValue _ _ _ -> do
           threadDelay $ 20 * 1000
           return ()
   else flip finally (disconnect identifier) $ forever $ do
@@ -135,6 +138,8 @@ broadcast :: ClientValue -> T.Text -> IO ()
 broadcast clients msg = do
   liftIO $ WS.sendTextData (fromJust $ clients ^. (selectClient True)) $ msg
   liftIO $ WS.sendTextData (fromJust $ clients ^. (selectClient False)) $ msg
+  mapM (liftIO . (`WS.sendTextData` msg)) $ clients ^. audience
+  return ()
 
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
@@ -144,7 +149,7 @@ gamePlay identifier clients = do
   d <- (^. ((selectPlayer identifier) . deck)) <$> S.get
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
-  printAsText identifier clients $ Message "手札から召喚する物を選択してください"
+  printAsText identifier clients $ Message "手札から召喚する物を選択してください。召喚ボタンで召喚できます。"
   printAsText identifier clients $ Hand h
   printAsText identifier clients RequireMonsterToSummon
 
@@ -153,7 +158,7 @@ gamePlay identifier clients = do
   printAsText identifier clients $ Message $ show $ pick h line
   let choices = S.evalStateT parseSentence (pick h line)
 
-  printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。召喚ボタンで召喚できます。"
+  printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
   printAsText identifier clients $ Choice $ map (Tree.graphvizDotBinTree "aiueo") choices
   ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 

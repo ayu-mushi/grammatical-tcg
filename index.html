@@ -25,8 +25,8 @@
       </div>
 
       手札ゾーン
-      <button id="summon-button">召喚ボタン</button>
-      <button id="clear-button">やり直しボタン</button>
+      <div id="button-zone">
+      </div>
       <div id="hand">
       </div>
 
@@ -58,15 +58,6 @@ $("form").submit(function(){
 /* setInterval(function(){
   ws.send("dummy");
 }, 25000); */
-
-$("#summon-button").on('click', () => {
-  ws.send($("#monster-to-summon").html());
-  $(".hand-card").removeClass("active");
-  $("#monster-to-summon").empty();
-});
-$("#clear-button").on('click', () => {
-  $("#monster-to-summon").empty();
-});
 
 var who_i_am = true;
 
@@ -112,6 +103,20 @@ ws.onmessage = function (msg) {
     });
   } else if (msg_analyzed.tag=="RequireMonsterToSummon"){
     console.log("require");
+    $("#button-zone").append("<button id='summon-button'>召喚</div>");
+    $("#button-zone").append("<button id='clear-button'>やり直し</div>");
+
+    $("#summon-button").on('click', () => {
+      ws.send($("#monster-to-summon").html());
+      $(".hand-card").removeClass("active");
+      $("#monster-to-summon").empty();
+      $("#summon-button").remove();
+      $("#clear-button").remove();
+    });
+    $("#clear-button").on('click', () => {
+      $("#monster-to-summon").empty();
+    });
+
     $(".hand-card").addClass("active");
     $(".hand-card").on("click", function(){
       console.log($(".hand-card").index(this));
