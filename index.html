@@ -2,21 +2,46 @@
 <html>
     <head>
         <meta charset="UTF-8">
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-<link rel="stylesheet" type="text/css" href="style.css">
+              <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="style.css">
+        <script type="text/javascript" src="https://unpkg.com/viz.js@1.8.0"></script>
     </head>
+
     <body>
 
-      <div id="hands"></div>
-      <div id="field"></div>
-      <div id="where_to_place"></div>
+      <div id="field">
+        フィールド
+        <div id="opponent">
+          相手
+          <div class="monster-zone">
+          </div>
+        </div>
+
+        <div id="myself">
+          自分
+          <div class="monster-zone">
+          </div>
+        </div>
+      </div>
+
+      手札ゾーン
+      <button id="summon-button">召喚ボタン</button>
+      <button id="clear-button">やり直しボタン</button>
+      <div id="hand">
+      </div>
+
+      <div id="monster-to-summon-zone">
+        召喚するモンスター(数字列):
+        <span id="monster-to-summon"></span>
+      </div>
+
       <div id="select_reading"></div>
-      <div id="console"></div>
 
       <form><input type="text"/></form>
 
+      <div id="console"></div>
 
-        <script>
+<script>
 try {
   var ws = new WebSocket('ws://localhost:8000/');
   //var ws = new WebSocket('ws://153.127.56.158/');
@@ -25,27 +50,38 @@ try {
 }
 
 $("form").submit(function(){
-    ws.send($('input').val());
-    $('input').val('');
-    return false;
+  ws.send($('input').val());
+  $('input').val('');
+  return false;
 });
+
 /* setInterval(function(){
   ws.send("dummy");
 }, 25000); */
 
-/*function draw_syntax_tree(c, element){
-  if(c.tag == "Node"){
-    var root = $("<ul>").appendTo(element);
-    for(var i=0 ;i!=c.contents.length ;i++){
-      li = $("<li>").appendTo(root);
-      draw_syntax_tree(c.contents[i], li)
-    }
-  } else if(c.tag == "Leaf"){
-    element.html(c.contents);
-  } else {
-    element.html(c);
+$("#summon-button").on('click', () => {
+  ws.send($("#monster-to-summon").html());
+  $(".hand-card").removeClass("active");
+  $("#monster-to-summon").empty();
+});
+$("#clear-button").on('click', () => {
+  $("#monster-to-summon").empty();
+});
+
+var who_i_am = true;
+
+
+function initField(){
+  function one(name){
+    [0,1,2,3,4].forEach(function(i){
+      monster_zone = $("#"+name + "> .monster-zone");
+      var zone_i = $("<div class='zone-"+i+" zone'>").appendTo(monster_zone);
+    });
   }
-}*/
+  one("myself");
+  one("opponent");
+}
+initField();
 
 ws.onmessage = function (msg) {
   var msg_analyzed = JSON.parse(msg.data);
@@ -55,13 +91,80 @@ ws.onmessage = function (msg) {
 
     for (var i = 0; i != msg_analyzed.contents.length;i++){
       li = $("<div class='syntax-tree'>").appendTo(ol);
-      draw_syntax_tree(msg_analyzed.contents[i], li);
+      vis = $(Viz(msg_analyzed.contents[i])).appendTo(li);
+      vis.height("200px").width("200px");
+      vis.click(function(){
+        ws.send($(".syntax-tree").index(this.parents));
+        $("#select_reading").empty();
+      });
     }
 
-    //$("#select_reading.ol").append("<li></li>").append(draw_syntax_tree(msg_analyzed.contents));
+    // $("#select_reading.ol").append("<li></li>").append(draw_syntax_tree(msg_analyzed.contents));
+  } else if (msg_analyzed.tag == "YouAre"){
+    var c = msg_analyzed.contents;
+    who_i_am = c;
   }
-  console.log(msg_analyzed);
-    $('#console').prepend(msg.data + '<br>');
+  else if (msg_analyzed.tag == "Hand"){
+    $("#hand").empty();
+    var c = msg_analyzed.contents;
+    c.forEach(function(x, i){
+      hand_card = $("<div id='hand-card"+i+"' class='hand-card'>"+x+"</div>").appendTo("#hand");
+    });
+  } else if (msg_analyzed.tag=="RequireMonsterToSummon"){
+    console.log("require");
+    $(".hand-card").addClass("active");
+    $(".hand-card").on("click", function(){
+      console.log($(".hand-card").index(this));
+      $("#monster-to-summon").append(" " +$(".hand-card").index(this));
+    });
+  } else if (msg_analyzed.tag == "Refresh"){
+    $(".zone").empty();
+    var c = msg_analyzed.contents;
+    if(who_i_am){
+      myself = c._myself;
+      opponent = c._opponent;
+    } else {
+      myself = c._opponent;
+      opponent = c._myself;
+    }
+    var draw = (function(player, name){
+      myfield = ("#field > #"+name);
+      hand = player._hands;
+      deck = player._deck;
+      field = player._field;
+      hand_div = $("#field > #"+name+" > .hand");
+
+      monster_zone = $("#"+name + "> .monster-zone");
+
+      $("zone").empty();
+
+      field.forEach(function(cell, i){
+        var zone_i = monster_zone.children(".zone-"+i);
+        if(cell != null){
+          $(Viz(cell[1])).appendTo(zone_i);
+          $("svg").height("100px").width("100px");
+        } else {
+          var nomonster = $("<div class='no-monster'>N</div>").appendTo(zone_i);
+          //zone_i.append("N");
+        }
+      });
+    });
+    draw(myself,"myself");
+    draw(opponent, "opponent");
+  } else if(msg_analyzed.tag=="WhereToPlace"){
+    $("#myself > .monster-zone > .zone").addClass("active");
+    $("#myself > .monster-zone > .zone").on("click", function(){
+      //if($(this).children("svg") != null) { return; }
+      ws.send($("#myself > .monster-zone > .zone").index(this));
+      $("#myself > .monster-zone > .zone").off();
+      $("#myself > .monster-zone > .zone").removeClass("active");
+    });
+  }
+  else if (msg_analyzed.tag == "Message"){
+    $('#console').prepend(msg_analyzed.contents + '<br>');
+  } else {
+    console.log("unknown:" +msg_analyzed.tag);
+  }
 }
         </script>
     </body>

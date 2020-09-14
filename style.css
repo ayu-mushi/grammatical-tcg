@@ -1,33 +1,59 @@
-.syntax-tree ul li ul {
-  margin-top: .5em;
-  margin-bottom: .75em;
-  margin-left: 48px;
+div {
+  .border: solid 8px red;
+  .background-color: #eeeeee
 }
- 
-.syntax-tree ul li ul li {
-  margin-bottom: .25em;
+#hand{
+  .border: solid 8px red;
+  display: flex;
+}
+.hand-card{
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#field{
+}
+#select_reading{
+  height: 200px;
+}
+.syntax-tree:hover{
+  cursor: pointer;
+}
+#console{
+  height: 100px;
+}
+.zone{
+  width: 100px;
+  height: 100px;
+  display: table;
+  text-align: center;
+  position:relative;
+}
+.no-monster{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  -webkit- transform: translateY(-50%) translateX(-50%);
+}
+.monster-zone{
+  display: flex;
+}
+.monster-to-summon-zone{
+  display: flex;
+}
+.syntax-tree > svg{
+}
+.zone > svg{
   position: relative;
 }
- 
-.syntax-tree ul li ul li::before {
-  content: "";
-  position: absolute;
-  top: -0.5em;
-  left: -16px;
-  width: 10px;
-  height: calc(100% + .75em);
-  border-left: 1px solid #3972b2;
+
+.active{
+  text-decoration: underline;
+  color: #0000ff;
 }
- 
-.syntax-tree ul li ul li:last-child::before {
-  height: calc(1em + .25em);
-}
- 
-.syntax-tree ul li ul li::after {
-  content: "";
-  position: absolute;
-  top: .75em;
-  left: -16px;
-  width: 10px;
-  border-bottom: 1px solid #3972b2;
+.active:hover {
+  color: #770077;
+  text-decoration: none;
+  cursor: pointer;
 }

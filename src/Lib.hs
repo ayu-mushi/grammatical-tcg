@@ -17,7 +17,7 @@ import Data.Maybe(fromJust)
 import Control.Concurrent(threadDelay)
 import qualified Data.ByteString.Lazy as LB(toStrict)
 import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
-import Math.Combinat.Trees.Binary
+import qualified Math.Combinat.Trees.Binary as Tree
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
@@ -35,105 +35,10 @@ import Data.IORef
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
 
+
+import Game
+
 -- websocket message は Show, Read で
-
-data Card = F | X
-  deriving (Enum,Show,Eq,Read)
-
-data Tree a = Node (Tree a) (Tree a) | Leaf a
-  deriving (Show, Eq,Read)
-
-data PlayerState = PlayerState {
-  _hands :: [Card]
-  , _deck :: [Card]
-  , _field :: V.Vector (Maybe (Tree Card))
-  } deriving (Show,Eq,Read)
-makeLenses ''PlayerState
-
-data Game = Game{
-  _opponent :: PlayerState
-  , _myself :: PlayerState
-  } deriving (Show,Eq, Read)
-makeLenses ''Game
-
-$(Aeson.deriveJSON Aeson.defaultOptions ''Card)
-$(Aeson.deriveJSON Aeson.defaultOptions ''Tree)
-$(Aeson.deriveJSON Aeson.defaultOptions ''PlayerState)
-$(Aeson.deriveJSON Aeson.defaultOptions ''Game)
-
-selectPlayer :: Bool -> Lens' Game PlayerState
-selectPlayer True = myself
-selectPlayer False = opponent
-
-initDeck :: IO [Card]
-initDeck = do
-  replicateM 40 $ do
-    r <- randomRIO (0, 1) :: IO Int
-    return $ toEnum r :: IO Card
-
-
--- カードを配る
--- 入力
--- 手札を数字で指定
--- パース
-
-draw :: (Monad m) => S.StateT PlayerState m Card
-draw = do
-  d <- (^. deck) <$> S.get
-  case d of
-    [] -> error "deck empty"
-    (x:xs) -> do
-      deck .= xs
-      return x
-
-initialDraw :: (Monad m) => S.StateT PlayerState m [Card]
-initialDraw = replicateM 5 draw
-
-initialPlayer :: IO PlayerState
-initialPlayer = do
-  d <- initDeck
-  return $ PlayerState {
-    _hands=[]
-    ,_deck=d
-    ,_field=V.replicate 5 Nothing
-    }
-
-initialGame :: IO Game
-initialGame = do
-  m <- initialPlayer
-  o <- initialPlayer
-  return $ Game {
-    _opponent = o
-    , _myself = m
-    }
-
-type Parser a = S.StateT [Card] [] a
-
-oneCard :: Card -> S.StateT [Card] [] Card
-oneCard one = do
-  c <- S.get
-  case c of
-       [] -> mzero
-       (x:xs) -> do
-         guard $ one == x
-         S.put xs
-         return x
-
-parsePred :: Parser (Tree Card)
-parsePred = fmap Leaf $ oneCard F
-
-parseNoun :: Parser (Tree Card)
-parseNoun = fmap Leaf $ oneCard X
-
-parseSentence :: Parser (Tree Card)
-parseSentence = do
-  f <- parsePred
-  x <- parseNoun
-  return (Node f x)
-
-pick :: [Card] -> [Int] -> [Card]
-pick hands ix = map (hands!!) ix
-
 -- とりあえずテキストで通信
 -- とりあえず1人
 
@@ -169,7 +74,13 @@ selectClient False = gote
 
 data ComingMessage = Dummy | Select Int
   deriving (Show, Read)
-data GoingMessage = Message String | Refresh Game | Choice [(Tree Card)]
+data GoingMessage = Message String
+                  | Refresh Game
+                  | Choice [String]
+                  | Hand [Card]
+                  | YouAre Bool
+                  | WhereToPlace
+                  | RequireMonsterToSummon
   deriving (Show, Read)
 
 $(Aeson.deriveJSON Aeson.defaultOptions ''ComingMessage)
@@ -185,6 +96,8 @@ startGame ref pending = do
       case conns of
         ClientValue { _sente=Just _, _gote = Just _ } -> do
           liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
+          printAsText True conns $ YouAre True
+          printAsText False conns $ YouAre False
           game <- initialGame
 
           S.runStateT (gameLoop identifier conns) game
@@ -226,20 +139,29 @@ broadcast clients msg = do
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
 gamePlay identifier clients = do
-  deck <- (^. (myself . deck)) <$> S.get
+  gameState <- S.get
+  liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+  d <- (^. ((selectPlayer identifier) . deck)) <$> S.get
+  h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
-  printAsText identifier clients $ Message $ show deck
+  printAsText identifier clients $ Message "手札から召喚する物を選択してください"
+  printAsText identifier clients $ Hand h
+  printAsText identifier clients RequireMonsterToSummon
+
   line <- S.lift $ fmap ((map read . words) . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
+  printAsText identifier clients $ Message $ show $ line
+  printAsText identifier clients $ Message $ show $ pick h line
+  let choices = S.evalStateT parseSentence (pick h line)
 
-  printAsText identifier clients $ Message $ show $ pick deck line
-  let choices = S.evalStateT parseSentence (pick deck line)
-
-  printAsText identifier clients $ Choice choices
+  printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。召喚ボタンで召喚できます。"
+  printAsText identifier clients $ Choice $ map (Tree.graphvizDotBinTree "aiueo") choices
   ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
-  printAsText identifier clients $ Message "where to place?"
+  printAsText identifier clients $ Message "召喚する場所をクリックしてください"
+  printAsText identifier clients WhereToPlace
   n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
-  ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ choices !! ch))]))
+  ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
+                                                      Tree.graphvizDotBinTree "aiueo" (choices !! ch))))]))
 
 
   gameState <- S.get

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0c2c45e978b9dacf262997a80d77f1d92c249c4ed523d138aa7f3831f0641b75
+-- hash: 2f89b9fda0b57c9fca54c66f91c907dc39bf9ff7c3f950cd6a79b8eeedd800c0
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Game
       Lib
   other-modules:
       Paths_grammatical_tcg_hs
