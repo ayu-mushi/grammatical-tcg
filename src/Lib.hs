@@ -68,8 +68,8 @@ defaultClient :: ClientValue
 defaultClient = ClientValue {_sente=Nothing, _gote=Nothing, _audience=[]}
 
 removeClient :: Bool -> ClientValue -> (ClientValue, ())
-removeClient True cs = error "disconnnnnected"
-removeClient False cs = error "disconnnnnected"
+removeClient True cs = (defaultClient, ())
+removeClient False cs = (defaultClient, ())
 
 selectClient :: Bool -> Lens' ClientValue (Maybe Client)
 selectClient True = sente
@@ -94,20 +94,20 @@ startGame ref pending = do
   conn <- WS.acceptRequest pending
   identifier <- atomicModifyIORef ref (addClient conn)
 
+  game <- initialGame
   if identifier then
-    flip finally (disconnect identifier) $ forever $ do
-      conns <- readIORef ref
+    flip finally (disconnect identifier) $ S.void $ (`S.runStateT` game) $ forever $ do
+      conns <- liftIO $ readIORef ref
       case conns of
         ClientValue { _sente=Just _, _gote = Just _ } -> do
           liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
           printAsText True conns $ YouAre True
           printAsText False conns $ YouAre False
-          game <- initialGame
 
-          S.runStateT (gameLoop identifier conns) game
+          gameLoop identifier conns
           return ()
         ClientValue _ _ _ -> do
-          threadDelay $ 20 * 1000
+          liftIO $ threadDelay $ 20 * 1000
           return ()
   else flip finally (disconnect identifier) $ forever $ do
     threadDelay $ 20 * 1000
@@ -118,7 +118,6 @@ startGame ref pending = do
       gamePlay identifier conns
       conns <- liftIO $ readIORef ref
       gamePlay (not identifier) conns
-      gameLoop identifier conns
 
 toJSONText :: (Aeson.ToJSON j) => j -> T.Text
 toJSONText = Text.decodeUtf8 . LB.toStrict . Aeson.encode

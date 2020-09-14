@@ -8,7 +8,7 @@
     </head>
 
     <body>
-
+      <div id="i-am"></div>
       <div id="field">
         フィールド
         <div id="opponent">
@@ -94,6 +94,12 @@ ws.onmessage = function (msg) {
   } else if (msg_analyzed.tag == "YouAre"){
     var c = msg_analyzed.contents;
     who_i_am = c;
+    $("#i-am").empty();
+    if(who_i_am){
+      $("#i-am").append("あなたは先手です");
+    } else {
+      $("#i-am").append("あなたは後手です");
+    }
   }
   else if (msg_analyzed.tag == "Hand"){
     $("#hand").empty();
