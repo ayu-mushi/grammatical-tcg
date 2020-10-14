@@ -36,6 +36,8 @@ dependencies:
 - aeson
 - bytestring
 - combinat
+- array
+- containers
 
 library:
   source-dirs: src
@@ -61,3 +63,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - grammatical-tcg-hs
+
+default-extensions: FlexibleInstances

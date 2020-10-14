@@ -155,7 +155,7 @@ ws.onmessage = function (msg) {
         var zone_i = monster_zone.children(".zone-"+i);
         if(cell != null){
           $(Viz(cell[1])).appendTo(zone_i);
-          $("svg").height("100px").width("100px");
+          $("svg").height("200px").width("200px");
         } else {
           var nomonster = $("<div class='no-monster'>N</div>").appendTo(zone_i);
           //zone_i.append("N");

@@ -23,8 +23,8 @@ div {
   height: 100px;
 }
 .zone{
-  width: 100px;
-  height: 100px;
+  width: 200px;
+  height: 200px;
   display: table;
   text-align: center;
   position:relative;

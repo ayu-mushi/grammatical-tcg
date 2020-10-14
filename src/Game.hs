@@ -25,15 +25,16 @@ import qualified Data.Aeson.TH as Aeson
 import Control.Exception (finally)
 import Control.Monad(forever)
 import qualified Data.Text as T(Text,pack, unpack)
+import Basic
 
 
-data Card = F | X | ADV
-  deriving (Enum,Show,Eq,Read)
+{-data Card = F | X | ADV | (:+:) | One | Two | N | Trash
+  deriving (Enum,Show,Eq,Read)-}
 
 data PlayerState = PlayerState {
   _hands :: [Card]
   , _deck :: [Card]
-  , _field :: V.Vector (Maybe (Tree.BinTree Card, Tree.Dot))
+  , _field :: V.Vector (Maybe (Tree.Tree Card, Tree.Dot))
   } deriving (Show,Eq,Read)
 makeLenses ''PlayerState
 
@@ -45,7 +46,7 @@ data Game = Game{
 makeLenses ''Game
 
 $(Aeson.deriveJSON Aeson.defaultOptions ''Card)
-$(Aeson.deriveJSON Aeson.defaultOptions ''Tree.BinTree)
+-- $(Aeson.deriveJSON Aeson.defaultOptions ''Tree.Tree)
 $(Aeson.deriveJSON Aeson.defaultOptions ''PlayerState)
 $(Aeson.deriveJSON Aeson.defaultOptions ''Game)
 
@@ -56,8 +57,8 @@ selectPlayer False = opponent
 initDeck :: IO [Card]
 initDeck = do
   replicateM 40 $ do
-    r <- randomRIO (0, 10) :: IO Int
-    return $ if r==9 then ADV else (if r < 5 then F else X)
+    r <- randomRIO (0, 7) :: IO Int
+    return $ toEnum r
 
 
 -- カードを配る
@@ -106,6 +107,7 @@ initialGame = do
 
 type Parser a = S.StateT [Card] [] a
 
+{-
 oneCard :: Card -> S.StateT [Card] [] Card
 oneCard one = do
   c <- S.get
@@ -116,23 +118,64 @@ oneCard one = do
          S.put xs
          return x
 
-parseAdv :: Parser (Tree.BinTree Card)
-parseAdv = fmap Tree.Leaf $ oneCard ADV
+parseAdv :: Parser (Tree.Tree Card)
+parseAdv = fmap (\x->Tree.Node x []) $ oneCard ADV
 
-parsePred :: Parser (Tree.BinTree Card)
-parsePred = fmap Tree.Leaf $ oneCard F
+parsePred :: Parser (Tree.Tree Card)
+parsePred = fmap (\x->Tree.Node x []) $ oneCard F
 
-parseNoun :: Parser (Tree.BinTree Card)
-parseNoun = fmap Tree.Leaf $ oneCard X
+parseNoun :: Parser (Tree.Tree Card)
+parseNoun = fmap (\x->Tree.Node x []) $ oneCard X
 
-parseSentence :: Parser (Tree.BinTree Card)
+parseOp ::  Parser (Tree.Tree Card)
+parseOp = fmap (\x->Tree.Node x []) $ oneCard (:+:)
+
+eof :: Parser ()
+eof = do
+  xs <- S.get
+  case xs of
+       [] -> return ()
+       (x:xs) -> mzero
+
+
+parseNum :: Parser (Tree.Tree Card)
+parseNum = do
+  opn <- parseNum'
+  m <- (fmap (\x->Tree.Node x []) $ oneCard One) `mplus` (fmap (\x->Tree.Node x []) $ oneCard Two)
+  return $ opn m
+  where
+    parseNum' :: Parser (Tree.Tree Card -> Tree.Tree Card)
+    parseNum' = (return id) `mplus` (do
+                m <- (fmap (\x->Tree.Node x []) $ oneCard One) `mplus` (fmap (\x->Tree.Node x []) $ oneCard Two)
+                op <- parseOp
+                opn <- parseNum'
+                return $ \x -> case opn x of
+                     Tree.Node l [] -> Tree.Node N $ [op, m, Tree.Node l []] :: (Tree.Tree Card)
+                     Tree.Node N (r:rs) -> Tree.Node N $ [op, m, Tree.Node N (r:rs)])
+
+
+parseSentence :: Parser (Tree.Tree Card)
 parseSentence = (do
   f <- parsePred
   x <- parseNoun
-  return (Tree.Branch f x)) `mplus` (do
-         av <- parseAdv
-         s <- parseSentence
-         return (Tree.Branch av s))
+  return (Tree.Node N [f, x]))
+    `mplus`
+  (do
+     av <- parseAdv
+     s <- parseSentence
+     return (Tree.Node N [av, s]))
+     `mplus`
+  (do
+    trash<-fmap (\x ->Tree.Node x []) $ oneCard Trash
+    num <- parseNum
+    return (Tree.Node N [trash, num]))
 
+parseSentencePeriod :: Parser (Tree.Tree Card)
+parseSentencePeriod = do
+  s <- parseSentence
+  eof
+  return s
+
+-}
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix

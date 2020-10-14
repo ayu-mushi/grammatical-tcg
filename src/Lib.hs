@@ -31,11 +31,12 @@ import Network.Wai (Application, responseFile, pathInfo)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Data.IORef
 
-
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
 
 
+import Basic
+import MyGrammer (parseSentencePeriod, GLRResult(..))
 import Game
 
 -- websocket message は Show, Read で
@@ -148,12 +149,8 @@ broadcast clients msg = do
 deleteElm :: Int -> [a] -> [a]
 deleteElm n xs = let (ys,zs) = splitAt n xs in ys ++ (tail zs)
 
-gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
-gamePlay identifier clients = do
-  gameState <- S.get
-  liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
-  (selectPlayer identifier) %= S.execState drawToHand
-  d <- (^. ((selectPlayer identifier) . deck)) <$> S.get
+handToNumbers ::  Bool -> ClientValue -> S.StateT Game IO [Int]
+handToNumbers identifier clients = do
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
   printAsText identifier clients $ Message "手札から召喚する物を選択してください。召喚ボタンで召喚できます。"
@@ -164,29 +161,54 @@ gamePlay identifier clients = do
 
   printAsText identifier clients $ Message $ show $ line
   printAsText identifier clients $ Message $ show $ pick h line
-  let choices = S.evalStateT parseSentence (pick h line)
+  return line
 
-  (selectPlayer identifier) . hands .= ((`S.execState` h) $ S.forM_ (L.sortBy (flip compare) line) $ \i -> do
-    l <- S.get
-    S.put (deleteElm i l))
+inputAndParseLoop ::  Bool -> ClientValue -> S.StateT Game IO [Tree.Tree Card]
+inputAndParseLoop identifier clients = do
+  line <- handToNumbers identifier clients
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
-  printAsText identifier clients $ Hand h
+  let (ParseOK root choices) = parseSentencePeriod (pick h line)
+
+  if null choices
+     then do
+       printAsText identifier clients $ Message "パースできません。文法を確かめてください。"
+       liftIO $ threadDelay $ 1000*1000
+       inputAndParseLoop identifier clients
+     else do
+       (selectPlayer identifier) . hands .= ((`S.execState` h) $ S.forM_ (L.sortBy (flip compare) line) $ \i -> do
+         l <- S.get
+         S.put (deleteElm i l))
+       h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
+       printAsText identifier clients $ Hand h
+       return choices
+
+
+gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
+gamePlay identifier clients = do
+  gameState <- S.get
+  liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+  (selectPlayer identifier) %= S.execState drawToHand
+
+  choices <- inputAndParseLoop identifier clients
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
-  printAsText identifier clients $ Choice $ map (Tree.graphvizDotBinTree "aiueo") choices
+  printAsText identifier clients $ Choice $ map (Tree.graphvizDotTree False "aiueo") choices
   ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
   printAsText identifier clients $ Message "召喚する場所をクリックしてください"
   printAsText identifier clients WhereToPlace
   n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
   ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
-                                                      Tree.graphvizDotBinTree "aiueo" (choices !! ch))))]))
+                                                      Tree.graphvizDotTree False "aiueo" (choices !! ch))))]))
 
 
   gameState <- S.get
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
 
+-- receiveDataしてパースに失敗した場合はもう一度要求する
+
+-- hoverで情報表示
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment

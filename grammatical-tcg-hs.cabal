@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2f89b9fda0b57c9fca54c66f91c907dc39bf9ff7c3f950cd6a79b8eeedd800c0
+-- hash: a9a88aa19053cc47104ef8d3249bfc94dd27c72852338e28efc9253907ac8d7b
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -27,17 +27,23 @@ source-repository head
 
 library
   exposed-modules:
+      Basic
       Game
       Lib
+      MyGrammer
+      MyGrammerData
   other-modules:
       Paths_grammatical_tcg_hs
   hs-source-dirs:
       src
+  default-extensions: FlexibleInstances
   build-depends:
       aeson
+    , array
     , base >=4.7 && <5
     , bytestring
     , combinat
+    , containers
     , http-types
     , lens
     , mtl
@@ -57,12 +63,15 @@ executable grammatical-tcg-hs-exe
       Paths_grammatical_tcg_hs
   hs-source-dirs:
       app
+  default-extensions: FlexibleInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , array
     , base >=4.7 && <5
     , bytestring
     , combinat
+    , containers
     , grammatical-tcg-hs
     , http-types
     , lens
@@ -84,12 +93,15 @@ test-suite grammatical-tcg-hs-test
       Paths_grammatical_tcg_hs
   hs-source-dirs:
       test
+  default-extensions: FlexibleInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
+    , array
     , base >=4.7 && <5
     , bytestring
     , combinat
+    , containers
     , grammatical-tcg-hs
     , http-types
     , lens
