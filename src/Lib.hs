@@ -16,7 +16,7 @@ import Data.Maybe(fromJust)
 import Control.Concurrent(threadDelay)
 import qualified Data.ByteString.Lazy as LB(toStrict)
 import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
-import qualified Math.Combinat.Trees.Binary as Tree
+--import qualified Math.Combinat.Trees.Binary as Tree
 import qualified Data.List as L
 
 import qualified Data.Aeson as Aeson
@@ -25,12 +25,20 @@ import qualified Data.Aeson.TH as Aeson
 import Control.Exception (finally)
 import Control.Monad(forever)
 import qualified Data.Text as T(Text,pack, unpack)
+import qualified Data.Text.Lazy as LazyT
 import Network.HTTP.Types (hContentType)
 import Network.HTTP.Types.Status (status200)
 import Network.Wai (Application, responseFile, pathInfo)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Data.IORef
 import qualified Data.Map as Map (lookup)
+
+
+import Data.GraphViz.Attributes
+import Data.GraphViz.Commands
+import Data.GraphViz.Types(printDotGraph)
+import Data.GraphViz.Types.Generalised
+import Data.GraphViz.Types.Monadic
 
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
@@ -77,8 +85,8 @@ selectClient :: Bool -> Lens' ClientValue (Maybe Client)
 selectClient True = sente
 selectClient False = gote
 
-data ComingMessage = Dummy | Select Int
-  deriving (Show, Read)
+{-data ComingMessage = Dummy | Select Int
+  deriving (Show, Read)-}
 data GoingMessage = Message String
                   | Refresh Game
                   | Choice [String]
@@ -88,7 +96,7 @@ data GoingMessage = Message String
                   | RequireMonsterToSummon
   deriving (Show, Read)
 
-$(Aeson.deriveJSON Aeson.defaultOptions ''ComingMessage)
+-- $(Aeson.deriveJSON Aeson.defaultOptions ''ComingMessage)
 $(Aeson.deriveJSON Aeson.defaultOptions ''GoingMessage)
 
 startGame :: IORef ClientValue -> WS.ServerApp
@@ -164,31 +172,32 @@ handToNumbers identifier clients = do
   printAsText identifier clients $ Message $ show $ pick h line
   return line
 
-inputAndParseLoop ::  Bool -> ClientValue -> S.StateT Game IO [Tree.Tree Card]
+inputAndParseLoop ::  Bool -> ClientValue -> S.StateT Game IO [MyTree Card]
 inputAndParseLoop identifier clients = do
   line <- handToNumbers identifier clients
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
   let parseResult = doParse (map (:[]) $ pick h line)
-      choises =
-        case parseResult of
-          (ParseOK root forest) -> decode (forest_lookup forest) root :: [(Tree.Tree Card)]
-          (ParseError tokens forest) -> (error $ "parseError: "++ show forest)
-          (ParseEOF forest) -> (error $ "parseEOF: "++ show forest)
-  {-if null choices
-     then do
-       printAsText identifier clients $ Message "パースできません。文法を確かめてください。"
-       liftIO $ threadDelay $ 1000*1000
-       inputAndParseLoop identifier clients
-     else do
-       (selectPlayer identifier) . hands .= ((`S.execState` h) $ S.forM_ (L.sortBy (flip compare) line) $ \i -> do
-         l <- S.get
-         S.put (deleteElm i l))
-       h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
-       printAsText identifier clients $ Hand h-}
-  return choises
+  case parseResult of
+    (ParseOK root forest) -> do
+      let choices = decode (forest_lookup forest) root :: [(MyTree Card)]
+      (selectPlayer identifier) . hands .= ((`S.execState` h) $ S.forM_ (L.sortBy (flip compare) line) $ \i -> do
+        l <- S.get
+        S.put (deleteElm i l))
+      h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
+      printAsText identifier clients $ Hand h
+      return choices
 
-  where forest_lookup f i = fromJust $ Map.lookup i f
+    (ParseError tokens forest) -> whenFailed identifier clients
+    (ParseEOF forest) -> whenFailed identifier clients
+
+
+  where
+    forest_lookup f i = fromJust $ Map.lookup i f
+    whenFailed identifier clients = do
+      printAsText identifier clients $ Message "パースできません。文法を確かめてください。"
+      liftIO $ threadDelay $ 1000*1000
+      inputAndParseLoop identifier clients
 
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
@@ -200,14 +209,17 @@ gamePlay identifier clients = do
   choices <- inputAndParseLoop identifier clients
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
-  printAsText identifier clients $ Choice $ map (Tree.graphvizDotTree False "aiueo") choices
+  --printAsText identifier clients $ Choice $ map (Tree.graphvizDotTree False "aiueo") choices
+  printAsText identifier clients $ Choice $ map (LazyT.unpack . treeToGraph) choices
   ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
   printAsText identifier clients $ Message "召喚する場所をクリックしてください"
   printAsText identifier clients WhereToPlace
   n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
+  {-((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
+                                                      Tree.graphvizDotTree False "aiueo" (choices !! ch))))]))-}
   ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
-                                                      Tree.graphvizDotTree False "aiueo" (choices !! ch))))]))
+                                                      LazyT.unpack $ treeToGraph $ choices !! ch)))]))
 
 
   gameState <- S.get
@@ -215,6 +227,20 @@ gamePlay identifier clients = do
 
 
 -- receiveDataしてパースに失敗した場合はもう一度要求する
+
+treeToGraph :: MyTree Card -> LazyT.Text
+treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree where
+  treeToGraph' :: [Int] -> MyTree Card -> DotM LazyT.Text ([Int])
+  treeToGraph' node_id (Leaf x) = do
+    node (LazyT.pack $ show node_id) [textLabel (LazyT.pack $ showMyTree (Leaf x))]
+    return node_id
+  treeToGraph' node_id (Node x children) = do
+    childGraphIds <- mapM (uncurry treeToGraph') (zip (map (:node_id) [0..]) children)
+    node (LazyT.pack $ show node_id) [textLabel (LazyT.pack $ showMyTree x)]
+    result <- mapM (((LazyT.pack $ show node_id) -->) . LazyT.pack . show) childGraphIds
+    return node_id
+
+  name node_id = LazyT.pack $ "node_"++(show node_id)
 
 -- hoverで情報表示
 someFunc :: IO ()

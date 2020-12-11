@@ -1,6 +1,5 @@
 {
 module MyGrammer where
-import qualified Math.Combinat.Trees.Binary as Tree
 import qualified Control.Monad.State as S
 import Basic
 }
@@ -21,27 +20,27 @@ import Basic
 
 %%
 
-S :: {Tree.Tree Card}
-  : Pred Noun { Tree.Node N [$1, $2] }
-  | Adverb S { Tree.Node N [$1, $2] }
-  | Trash Num { Tree.Node N [Tree.Node Trash [], $2] }
+S :: {MyTree Card}
+  : Pred Noun { Node $1 [$2] }
+  | Adverb S { Node $1 [$2] }
+  | Trash Num { Node (Leaf Trash) [$2] }
 
-Pred :: {Tree.Tree Card}
-     : F { Tree.Node F [] }
+Pred :: {MyTree Card}
+     : F { Leaf F }
 
-Noun :: {Tree.Tree Card}
-     : X { Tree.Node F [] }
+Noun :: {MyTree Card}
+     : X { Leaf X }
 
-Adverb :: {Tree.Tree Card}
-       : Adv { Tree.Node F [] }
+Adverb :: {MyTree Card}
+       : Adv { Leaf Adv }
 
-Num :: {Tree.Tree Card}
-    : One { Tree.Node One [] }
-    | Two { Tree.Node Two [] }
-    | Num Op Num { Tree.Node N [$2, $1, $3] }
+Num :: {MyTree Card}
+    : One { Leaf One }
+    | Two { Leaf Two }
+    | Num Op Num { Node $2 [$1, $3] }
 
-Op :: {Tree.Tree Card}
-   : "+" { Tree.Node (:+:) []}
+Op :: {MyTree Card}
+   : "+" { Leaf (:+:) }
 
 {
 parseError :: [Card] -> a

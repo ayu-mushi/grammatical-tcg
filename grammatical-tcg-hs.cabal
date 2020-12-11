@@ -3,8 +3,6 @@ cabal-version: 1.12
 -- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: 5a830ea9a13a74ba75fd9897587c7b407dcf067309a3c11e150661b01c958d00
 
 name:           grammatical-tcg-hs
 version:        0.1.0.0
@@ -44,6 +42,7 @@ library
     , bytestring
     , combinat
     , containers
+    , graphviz
     , http-types
     , lens
     , mtl
@@ -73,6 +72,7 @@ executable grammatical-tcg-hs-exe
     , combinat
     , containers
     , grammatical-tcg-hs
+    , graphviz
     , http-types
     , lens
     , mtl
@@ -103,6 +103,7 @@ test-suite grammatical-tcg-hs-test
     , combinat
     , containers
     , grammatical-tcg-hs
+    , graphviz
     , http-types
     , lens
     , mtl

@@ -7,7 +7,6 @@ module Data where
 
 
 
-import qualified Math.Combinat.Trees.Binary as Tree
 import qualified Control.Monad.State as S
 import Basic
 import qualified Data.Array as Happy_Data_Array
@@ -104,12 +103,12 @@ class LabelDecode a where
 
 
 
-{-# LINE 105 "src/Data.hs"#-}
+{-# LINE 104 "src/Data.hs"#-}
 
 parseError :: [Card] -> a
 parseError _ = error "Parse error"
 
-{-# LINE 110 "src/Data.hs"#-}
+{-# LINE 109 "src/Data.hs"#-}
 
 data GSymbol = HappyEOF | HappyTok {-!Int-} (Card) | G_S 
  | G_Pred 
@@ -122,10 +121,10 @@ data GSymbol = HappyEOF | HappyTok {-!Int-} (Card) | G_S
 data GSem
  = NoSem
  | SemTok (Card)
- | Sem_0 (Tree.Tree Card -> Tree.Tree Card -> Tree.Tree Card) 
- | Sem_1 (Tree.Tree Card -> Tree.Tree Card) 
- | Sem_2 (Tree.Tree Card) 
- | Sem_3 (Tree.Tree Card -> Tree.Tree Card -> Tree.Tree Card -> Tree.Tree Card) 
+ | Sem_0 (MyTree Card -> MyTree Card -> MyTree Card) 
+ | Sem_1 (MyTree Card -> MyTree Card) 
+ | Sem_2 (MyTree Card) 
+ | Sem_3 (MyTree Card -> MyTree Card -> MyTree Card -> MyTree Card) 
 instance Show GSem where
   show Sem_0{} = "Sem_0"
   show Sem_1{} = "Sem_1"
@@ -133,19 +132,21 @@ instance Show GSem where
   show Sem_3{} = "Sem_3"
 
 
-semfn_0_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_0 (\happy_var_1 -> \happy_var_2 -> Tree.Node N [happy_var_1, happy_var_2])) ns
-semfn_1_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_1 (\happy_var_2 -> Tree.Node N [Tree.Node Trash [], happy_var_2])) ns
-semfn_2_0 ns@(happy_rest) =  Branch (Sem_2 (Tree.Node F [])) ns
-semfn_2_1 ns@(happy_rest) =  Branch (Sem_2 (Tree.Node One [])) ns
-semfn_2_2 ns@(happy_rest) =  Branch (Sem_2 (Tree.Node Two [])) ns
-semfn_2_3 ns@(happy_rest) =  Branch (Sem_2 (Tree.Node (:+:) [])) ns
-semfn_3_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_3 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Tree.Node N [happy_var_2, happy_var_1, happy_var_3])) ns
+semfn_0_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_0 (\happy_var_1 -> \happy_var_2 -> Node happy_var_1 [happy_var_2])) ns
+semfn_1_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_1 (\happy_var_2 -> Node (Leaf Trash) [happy_var_2])) ns
+semfn_2_0 ns@(happy_rest) =  Branch (Sem_2 (Leaf F)) ns
+semfn_2_1 ns@(happy_rest) =  Branch (Sem_2 (Leaf X)) ns
+semfn_2_2 ns@(happy_rest) =  Branch (Sem_2 (Leaf Adv)) ns
+semfn_2_3 ns@(happy_rest) =  Branch (Sem_2 (Leaf One)) ns
+semfn_2_4 ns@(happy_rest) =  Branch (Sem_2 (Leaf Two)) ns
+semfn_2_5 ns@(happy_rest) =  Branch (Sem_2 (Leaf (:+:))) ns
+semfn_3_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_3 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Node happy_var_2 [happy_var_1, happy_var_3])) ns
 
 
 type Decode_Result a = a
 happy_ap = ($)
 happy_return = id
-instance TreeDecode (Tree.Tree Card) where 
+instance TreeDecode (MyTree Card) where 
   decode_b f (Branch (Sem_0 s) (b_0:b_1:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1)
   decode_b f (Branch (Sem_1 s) (b_0:b_1:_)) = (cross_fn [s] $ decode f b_1)
   decode_b f (Branch (Sem_2 s) (_)) = [s]
@@ -195,12 +196,12 @@ red_1 = (G_S,2 :: Int,semfn_0_0)
 red_2 = (G_S,2 :: Int,semfn_0_0)
 red_3 = (G_S,2 :: Int,semfn_1_0)
 red_4 = (G_Pred,1 :: Int,semfn_2_0)
-red_5 = (G_Noun,1 :: Int,semfn_2_0)
-red_6 = (G_Adverb,1 :: Int,semfn_2_0)
-red_7 = (G_Num,1 :: Int,semfn_2_1)
-red_8 = (G_Num,1 :: Int,semfn_2_2)
+red_5 = (G_Noun,1 :: Int,semfn_2_1)
+red_6 = (G_Adverb,1 :: Int,semfn_2_2)
+red_7 = (G_Num,1 :: Int,semfn_2_3)
+red_8 = (G_Num,1 :: Int,semfn_2_4)
 red_9 = (G_Num,3 :: Int,semfn_3_0)
-red_10 = (G_Op,1 :: Int,semfn_2_3)
+red_10 = (G_Op,1 :: Int,semfn_2_5)
 goto 0 G_S = 4
 goto 0 G_Pred = 2
 goto 0 G_Adverb = 5

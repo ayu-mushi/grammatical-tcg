@@ -17,7 +17,7 @@ import Data.Maybe(fromJust)
 import Control.Concurrent(threadDelay)
 import qualified Data.ByteString.Lazy as LB(toStrict)
 import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
-import qualified Math.Combinat.Trees.Binary as Tree
+--import qualified Math.Combinat.Trees.Binary as Tree
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
@@ -34,7 +34,7 @@ import Basic
 data PlayerState = PlayerState {
   _hands :: [Card]
   , _deck :: [Card]
-  , _field :: V.Vector (Maybe (Tree.Tree Card, Tree.Dot))
+  , _field :: V.Vector (Maybe (MyTree Card, String))
   } deriving (Show,Eq,Read)
 makeLenses ''PlayerState
 
@@ -45,7 +45,7 @@ data Game = Game{
   } deriving (Show,Eq, Read)
 makeLenses ''Game
 
-$(Aeson.deriveJSON Aeson.defaultOptions ''Card)
+-- $(Aeson.deriveJSON Aeson.defaultOptions ''Card)
 -- $(Aeson.deriveJSON Aeson.defaultOptions ''Tree.Tree)
 $(Aeson.deriveJSON Aeson.defaultOptions ''PlayerState)
 $(Aeson.deriveJSON Aeson.defaultOptions ''Game)
@@ -57,8 +57,9 @@ selectPlayer False = opponent
 initDeck :: IO [Card]
 initDeck = do
   replicateM 40 $ do
-    r <- randomRIO (0, 7) :: IO Int
-    return $ toEnum r
+    r <- randomRIO (0, 6) :: IO Int
+    return $ toEnum r :: IO Card
+  return $ concat $ replicate 100 [(:+:),One,Two,Trash]
 
 
 -- カードを配る
