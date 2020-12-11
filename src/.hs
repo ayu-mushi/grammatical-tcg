@@ -1,154 +1,17 @@
 {-# OPTIONS  #-}
 
--- parser (driver) produced by Happy (GLR) Version 1.19.9
+-- parser (driver) produced by Happy (GLR) Version 1.19.12
 
 module MyGrammer(
 
   parseSentencePeriod
 
 {-# LINE 1 "templates/GLR_Lib.hs" #-}
-{-# LINE 1 "templates/GLR_Lib.hs" #-}
-{-# LINE 1 "<built-in>" #-}
-{-# LINE 1 "<command-line>" #-}
-
-
-
-
-
-
-
-# 1 "/usr/include/stdc-predef.h" 1 3 4
-
-# 17 "/usr/include/stdc-predef.h" 3 4
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "/home/ayu-mushi/.stack/programs/x86_64-linux/ghc-8.2.2/lib/ghc-8.2.2/include/ghcversion.h" #-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "/tmp/ghc31192_0/ghc_2.h" #-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "templates/GLR_Lib.hs" #-}
 {-# LINE 1 "GLR_Lib.hs" #-}
 
 {-
    GLR_Lib.lhs
-   Id: GLR_Lib.lhs,v 1.5 2005/08/03 13:42:23 paulcc Exp 
+   $Id: GLR_Lib.lhs,v 1.5 2005/08/03 13:42:23 paulcc Exp $
 -}
 
  {-
@@ -207,18 +70,59 @@ import Data.List (insertBy, nub, maximumBy, partition, find, groupBy, delete)
 
 
 
-import Data
+import MyGrammerData
 parseSentencePeriod = glr_parse 
 use_filtering = False
 top_symbol = G_S
 
 {- borrowed from GenericTemplate.hs -}
 
-{-# LINE 89 "templates/GLR_Lib.hs" #-}
 
-{-# LINE 103 "templates/GLR_Lib.hs" #-}
 
-{-# LINE 112 "templates/GLR_Lib.hs" #-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -303,7 +207,6 @@ doActions stks (tok:toks)
                          | tok_form <- tok ]
         let new_stks = merge $ concat stkss
         {- nothing -}
-
         case new_stks of            -- did this token kill stacks?
           [] -> case toks of
                   []  -> return $ Right []         -- ok if no more tokens
@@ -332,10 +235,9 @@ reduceAll cyclic_names itok@(i,tok) (stk:stks)
                    -- WARNING: incomplete if more than one Empty in a prod(!)
                    -- WARNING: can avoid by splitting emps/non-emps
         {- nothing -}
-
         stks' <- foldM (pack i) stks reds
         let new_cyclic = [ m | (m,0,_) <- rs
-                             , (this_state ==  goto this_state m)
+                             , (this_state == goto this_state m)
                              , m `notElem` cyclic_names ]
         reduceAll (cyclic_names ++ new_cyclic) itok $ merge stks'
 
@@ -358,7 +260,7 @@ pack
  :: Int -> [FStack] -> (Branch, FStack, GSymbol) -> PM [FStack]
 
 pack e_i stks (fids,stk,m)
- | (st <  (0))
+ | (st < (0))
     = return stks
  | otherwise
     = do
@@ -366,13 +268,10 @@ pack e_i stks (fids,stk,m)
        let key = (s_i,e_i,m)
        {- nothing -}
 
-
-
-
        duplicate <- addBranch key fids
 
        let stack_matches = [ s | s <- stks
-                                , (top s ==  st)
+                                , (top s == st)
                                , let (k,s') = case ts_tail s of x:_ -> x
                                 , stk == s'
                                 , k == key
@@ -380,13 +279,7 @@ pack e_i stks (fids,stk,m)
        let appears_in = not $ null stack_matches
 
        {- nothing -}
-
-
        {- nothing -}
-
-
-
-
 
        if duplicate && appears_in
         then return stks       -- because already there
@@ -472,10 +365,10 @@ instance Show a => Show (TStack a) where
 -- id uniquely identifies a stack
 
 instance Eq (TStack a) where
-      s1 == s2 = (ts_id s1 ==  ts_id s2)
+      s1 == s2 = (ts_id s1 == ts_id s2)
 
 --instance Ord (TStack a) where
---      s1 `compare` s2 = (ts_id s1) `compare` (ts_id s2)
+--      s1 `compare` s2 = IBOX(ts_id s1) `compare` IBOX(ts_id s2)
 
 ---
 -- Nothing special done for insertion
@@ -496,7 +389,7 @@ push x@(s_i,e_i,m) st (id) stk
  = TS st id stoup [(x,stk)]
    where
         -- only fill stoup for cyclic states that don't consume input
-       stoup | s_i == e_i && (st ==  goto st m) = Just x
+       stoup | s_i == e_i && (st == goto st m) = Just x
              | otherwise                        = Nothing
 
 ---

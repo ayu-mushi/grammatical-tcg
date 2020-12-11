@@ -84,6 +84,7 @@ ws.onmessage = function (msg) {
       li = $("<div class='syntax-tree'>").appendTo(ol);
       vis = $(Viz(msg_analyzed.contents[i])).appendTo(li);
       vis.height("200px").width("200px");
+      vis.css("float","left");
       vis.click(function(){
         ws.send($(".syntax-tree").index(this.parents));
         $("#select_reading").empty();

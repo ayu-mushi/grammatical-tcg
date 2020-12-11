@@ -1,9 +1,9 @@
 {-# OPTIONS  #-}
 
 
--- parser (data) produced by Happy (GLR) Version 1.19.9
+-- parser (data) produced by Happy (GLR) Version 1.19.12
 
-module MyGrammerData where
+module Data where
 
 
 
@@ -18,250 +18,8 @@ import Control.Monad (ap)
 
 
 {-# LINE 1 "templates/GLR_Base.hs" #-}
-{-# LINE 1 "templates/GLR_Base.hs" #-}
-{-# LINE 1 "<built-in>" #-}
-{-# LINE 1 "<command-line>" #-}
-
-
-
-
-
-
-
-# 1 "/usr/include/stdc-predef.h" 1 3 4
-
-# 17 "/usr/include/stdc-predef.h" 3 4
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "/home/ayu-mushi/.stack/programs/x86_64-linux/ghc-8.2.2/lib/ghc-8.2.2/include/ghcversion.h" #-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "/tmp/ghc31185_0/ghc_2.h" #-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-# LINE 7 "<command-line>" #-}
-{-# LINE 1 "templates/GLR_Base.hs" #-}
 {- GLR_Base.lhs
-   Id: GLR_Base.lhs,v 1.4 2004/12/04 15:01:37 paulcc Exp 
+   $Id: GLR_Base.lhs,v 1.4 2004/12/04 15:01:37 paulcc Exp $
 -}
 
 -- Basic defs required for compiling the data portion of the parser
@@ -346,12 +104,12 @@ class LabelDecode a where
 
 
 
-{-# LINE 347 "src/MyGrammerData.hs"#-}
+{-# LINE 105 "src/Data.hs"#-}
 
 parseError :: [Card] -> a
 parseError _ = error "Parse error"
 
-{-# LINE 352 "src/MyGrammerData.hs"#-}
+{-# LINE 110 "src/Data.hs"#-}
 
 data GSymbol = HappyEOF | HappyTok {-!Int-} (Card) | G_S 
  | G_Pred 

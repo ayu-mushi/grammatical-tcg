@@ -2,4 +2,6 @@
 
 相手が何かした時に更新が入らなければいけない→WebSocketで双方向通信の必要
 
-ドメインだけ同じのを用意しておけばサーバー移行しても大丈夫
+``` haskell
+happy --glr -o src/ MyGrammer.y --decode
+```

@@ -1,5 +1,3 @@
 .stack-work/
 *~
 .swp
-src/MyGrammerData.hs
-src/MyGrammer.hs

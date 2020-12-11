@@ -30,13 +30,14 @@ import Network.HTTP.Types.Status (status200)
 import Network.Wai (Application, responseFile, pathInfo)
 import Network.Wai.Handler.WebSockets (websocketsOr)
 import Data.IORef
+import qualified Data.Map as Map (lookup)
 
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
 
 
 import Basic
-import MyGrammer (parseSentencePeriod, GLRResult(..))
+import MyGrammer (parseSentencePeriod, GLRResult(..), TreeDecode(..), decode, doParse)
 import Game
 
 -- websocket message は Show, Read で
@@ -167,9 +168,14 @@ inputAndParseLoop ::  Bool -> ClientValue -> S.StateT Game IO [Tree.Tree Card]
 inputAndParseLoop identifier clients = do
   line <- handToNumbers identifier clients
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
-  let (ParseOK root choices) = parseSentencePeriod (pick h line)
 
-  if null choices
+  let parseResult = doParse (map (:[]) $ pick h line)
+      choises =
+        case parseResult of
+          (ParseOK root forest) -> decode (forest_lookup forest) root :: [(Tree.Tree Card)]
+          (ParseError tokens forest) -> (error $ "parseError: "++ show forest)
+          (ParseEOF forest) -> (error $ "parseEOF: "++ show forest)
+  {-if null choices
      then do
        printAsText identifier clients $ Message "パースできません。文法を確かめてください。"
        liftIO $ threadDelay $ 1000*1000
@@ -179,8 +185,10 @@ inputAndParseLoop identifier clients = do
          l <- S.get
          S.put (deleteElm i l))
        h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
-       printAsText identifier clients $ Hand h
-       return choices
+       printAsText identifier clients $ Hand h-}
+  return choises
+
+  where forest_lookup f i = fromJust $ Map.lookup i f
 
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
