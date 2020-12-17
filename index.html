@@ -24,10 +24,10 @@
         </div>
       </div>
 
-      手札ゾーン
-      <div id="button-zone">
-      </div>
+      手札ゾーン:
       <div id="hand">
+      </div>
+      <div id="button-zone">
       </div>
 
       <div id="monster-to-summon-zone">
@@ -111,7 +111,7 @@ ws.onmessage = function (msg) {
   } else if (msg_analyzed.tag=="RequireMonsterToSummon"){
     console.log("require");
     $("#button-zone").append("<button id='summon-button'>召喚</div>");
-    $("#button-zone").append("<button id='clear-button'>やり直し</div>");
+    $("#button-zone").append("<button id='clear-button'>召喚のやり直し</div>");
 
     $("#summon-button").on('click', () => {
       ws.send($("#monster-to-summon").html());

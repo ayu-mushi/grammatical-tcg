@@ -21,6 +21,7 @@ import qualified Data.Text.Encoding as Text(encodeUtf8, decodeUtf8)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
+import Data.List (null)
 
 import Control.Exception (finally)
 import Control.Monad(forever)
@@ -84,7 +85,7 @@ drawToHand = do
 
 initialDraw :: (Monad m) => S.StateT PlayerState m ()
 initialDraw = do
-  replicateM 20 drawToHand
+  replicateM 3 drawToHand
   return ()
 
 initialPlayer :: IO PlayerState
@@ -108,6 +109,9 @@ initialGame = do
 
 type Parser a = S.StateT [Card] [] a
 
+
+isWinning :: Bool -> Game -> Bool
+isWinning turn game = Data.List.null $ game ^. (selectPlayer turn . hands)
 
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix

@@ -7,8 +7,8 @@ cabal-version: 1.12
 name:           grammatical-tcg-hs
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/grammatical-tcg-hs#readme>
-homepage:       https://github.com/githubuser/grammatical-tcg-hs#readme
-bug-reports:    https://github.com/githubuser/grammatical-tcg-hs/issues
+homepage:       https://github.com/ayu-mushi/grammatical-tcg-hs#readme
+bug-reports:    https://github.com/ayu-mushi/grammatical-tcg-hs/issues
 author:         Author name here
 maintainer:     example@example.com
 copyright:      2020 Author name here
@@ -21,7 +21,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/grammatical-tcg-hs
+  location: https://github.com/ayu-mushi/grammatical-tcg-hs
 
 library
   exposed-modules:

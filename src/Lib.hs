@@ -194,6 +194,7 @@ inputAndParseLoop identifier clients = do
 
   where
     forest_lookup f i = fromJust $ Map.lookup i f
+
     whenFailed identifier clients = do
       printAsText identifier clients $ Message "パースできません。文法を確かめてください。"
       liftIO $ threadDelay $ 1000*1000
@@ -204,32 +205,39 @@ gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
 gamePlay identifier clients = do
   gameState <- S.get
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+
+  -- ドロー
   (selectPlayer identifier) %= S.execState drawToHand
 
   choices <- inputAndParseLoop identifier clients
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
-  --printAsText identifier clients $ Choice $ map (Tree.graphvizDotTree False "aiueo") choices
   printAsText identifier clients $ Choice $ map (LazyT.unpack . treeToGraph) choices
   ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
 
   printAsText identifier clients $ Message "召喚する場所をクリックしてください"
   printAsText identifier clients WhereToPlace
   n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
-  {-((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
-                                                      Tree.graphvizDotTree False "aiueo" (choices !! ch))))]))-}
   ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
                                                       LazyT.unpack $ treeToGraph $ choices !! ch)))]))
 
-
   gameState <- S.get
+
+  if (isWinning identifier gameState)
+     then do
+       printAsText identifier clients $ Message $ "あなた (" ++ (if identifier then "先手" else "後手") ++ ") の勝ちです"
+       printAsText (not identifier) clients $ Message $"あなた (" ++ (if identifier then "後手" else "先手") ++ ") の負けです"
+     else return ()
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
 
 -- receiveDataしてパースに失敗した場合はもう一度要求する
 
 treeToGraph :: MyTree Card -> LazyT.Text
-treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree where
+treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree
+
+
+  where
   treeToGraph' :: [Int] -> MyTree Card -> DotM LazyT.Text ([Int])
   treeToGraph' node_id (Leaf x) = do
     node (LazyT.pack $ show node_id) [textLabel (LazyT.pack $ showMyTree (Leaf x))]
