@@ -96,6 +96,8 @@ data GoingMessage = Message String
                   | RequireMonsterToSummon
   deriving (Show, Read)
 
+-- パス
+
 -- $(Aeson.deriveJSON Aeson.defaultOptions ''ComingMessage)
 $(Aeson.deriveJSON Aeson.defaultOptions ''GoingMessage)
 
@@ -200,6 +202,30 @@ inputAndParseLoop identifier clients = do
       liftIO $ threadDelay $ 1000*1000
       inputAndParseLoop identifier clients
 
+effectWhenSummoned :: (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m ()
+effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
+  gameState <- S.get
+  let handsMaisu = length $ gameState ^. (selectPlayer turn . hands)
+
+  let how_many_card_you_trash = (evalFormula formula)
+  printAsText turn clients $ Message $ "手札の枚数: " ++ show handsMaisu
+  printAsText turn clients $ Message $ "Trashの効果: 手札を" ++ show how_many_card_you_trash ++ "枚捨てる。"
+
+  replicateM_ how_many_card_you_trash $ do
+    ((selectPlayer turn . hands) %= trashOne)
+    liftIO $ threadDelay $ 1000*100
+    liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+
+  gameState <- S.get
+  let handsMaisu = length $ gameState ^. (selectPlayer turn . hands)
+
+  printAsText turn clients $ Message $ "手札の残り枚数: " ++ show handsMaisu
+  where
+   trashOne [] = []
+   trashOne (x:xs) = xs
+effectWhenSummoned turn clients monster = return ()
+
+
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
 gamePlay identifier clients = do
@@ -209,6 +235,7 @@ gamePlay identifier clients = do
   -- ドロー
   (selectPlayer identifier) %= S.execState drawToHand
 
+  -- summon
   choices <- inputAndParseLoop identifier clients
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
@@ -218,8 +245,13 @@ gamePlay identifier clients = do
   printAsText identifier clients $ Message "召喚する場所をクリックしてください"
   printAsText identifier clients WhereToPlace
   n <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
-  ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (choices !! ch,
-                                                      LazyT.unpack $ treeToGraph $ choices !! ch)))]))
+  let selected = choices !! ch
+  ((selectPlayer identifier) . field) %= (V.// ([(n, (Just $ (selected,
+                                                      LazyT.unpack $ treeToGraph selected)))]))
+
+  liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+
+  effectWhenSummoned identifier clients selected
 
   gameState <- S.get
 

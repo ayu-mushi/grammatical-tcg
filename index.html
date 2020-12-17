@@ -5,6 +5,7 @@
               <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
         <link rel="stylesheet" type="text/css" href="style.css">
         <script type="text/javascript" src="https://unpkg.com/viz.js@1.8.0"></script>
+        <title>Grammatical Card Game</title>
     </head>
 
     <body>
@@ -146,10 +147,8 @@ ws.onmessage = function (msg) {
       hand = player._hands;
       deck = player._deck;
       field = player._field;
-      hand_div = $("#field > #"+name+" > .hand");
-
+      //hand_div = $("#field > #"+name+" > .hand");
       monster_zone = $("#"+name + "> .monster-zone");
-
       $("zone").empty();
 
       field.forEach(function(cell, i){
@@ -165,6 +164,12 @@ ws.onmessage = function (msg) {
     });
     draw(myself,"myself");
     draw(opponent, "opponent");
+
+    $("#hand").empty();
+    myself._hands.forEach(function(x, i){
+      hand_card = $("<div id='hand-card"+i+"' class='hand-card'>"+x+"</div>").appendTo("#hand");
+    });
+
   } else if(msg_analyzed.tag=="WhereToPlace"){
     $("#myself > .monster-zone > .zone").addClass("active");
     $("#myself > .monster-zone > .zone").on("click", function(){

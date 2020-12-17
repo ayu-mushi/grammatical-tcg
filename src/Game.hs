@@ -85,7 +85,7 @@ drawToHand = do
 
 initialDraw :: (Monad m) => S.StateT PlayerState m ()
 initialDraw = do
-  replicateM 3 drawToHand
+  replicateM 20 drawToHand
   return ()
 
 initialPlayer :: IO PlayerState
@@ -112,6 +112,12 @@ type Parser a = S.StateT [Card] [] a
 
 isWinning :: Bool -> Game -> Bool
 isWinning turn game = Data.List.null $ game ^. (selectPlayer turn . hands)
+
+evalFormula :: MyTree Card -> Int
+evalFormula (Node (Leaf (:+:)) [formula1, formula2]) = (evalFormula formula1) + (evalFormula formula2)
+evalFormula (Leaf One) = 1
+evalFormula (Leaf Two) = 2
+evalFormula x = error "is not formula"
 
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix
