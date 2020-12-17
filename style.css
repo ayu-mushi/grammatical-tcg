@@ -6,6 +6,10 @@ div {
   .border: solid 8px red;
   display: flex;
 }
+#opponent-hand{
+  .border: solid 8px red;
+  display: flex;
+}
 .hand-card{
   padding-left: 5px;
   padding-right: 5px;

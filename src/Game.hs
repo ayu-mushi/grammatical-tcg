@@ -36,6 +36,7 @@ data PlayerState = PlayerState {
   _hands :: [Card]
   , _deck :: [Card]
   , _field :: V.Vector (Maybe (MyTree Card, String))
+  , _lifepoint :: Int
   } deriving (Show,Eq,Read)
 makeLenses ''PlayerState
 
@@ -95,6 +96,7 @@ initialPlayer = do
     _hands=[]
     ,_deck=d
     ,_field=V.replicate 5 Nothing
+    , _lifepoint=8000
     }
 
 initialGame :: IO Game

@@ -5,7 +5,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
 import Data.List (intercalate)
 
-data Card = F | X | Adv | (:+:) | One | Two | Trash
+data Card = F | X | Adv | (:+:) | One | Two | Trash | Draw | Skip
   deriving (Enum,Show,Eq,Read,Ord)
 
 

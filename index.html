@@ -10,6 +10,11 @@
 
     <body>
       <div id="i-am"></div>
+
+      相手の手札:
+      <div id="opponent-hand" style="display: flex">
+      </div>
+
       <div id="field">
         フィールド
         <div id="opponent">
@@ -125,9 +130,9 @@ ws.onmessage = function (msg) {
       $("#monster-to-summon").empty();
     });
 
-    $(".hand-card").addClass("active");
-    $(".hand-card").on("click", function(){
-      var i = $(".hand-card").index(this);
+    $("#hand > .hand-card").addClass("active");
+    $("#hand > .hand-card").on("click", function(){
+      var i = $("#hand > .hand-card").index(this);
       if (!($("#monster-to-summon").html().split(" ").includes(i+""))){
         $("#monster-to-summon").append(" " + i);
       }
@@ -142,7 +147,7 @@ ws.onmessage = function (msg) {
       myself = c._opponent;
       opponent = c._myself;
     }
-    var draw = (function(player, name){
+    var drawField = (function(player, name){
       myfield = ("#field > #"+name);
       hand = player._hands;
       deck = player._deck;
@@ -158,16 +163,20 @@ ws.onmessage = function (msg) {
           $("svg").height("200px").width("200px");
         } else {
           var nomonster = $("<div class='no-monster'>N</div>").appendTo(zone_i);
-          //zone_i.append("N");
         }
       });
     });
-    draw(myself,"myself");
-    draw(opponent, "opponent");
+    drawField(myself,"myself");
+    drawField(opponent, "opponent");
 
     $("#hand").empty();
     myself._hands.forEach(function(x, i){
       hand_card = $("<div id='hand-card"+i+"' class='hand-card'>"+x+"</div>").appendTo("#hand");
+    });
+
+    $("#opponent-hand").empty();
+    opponent._hands.forEach(function(x, i){
+      hand_card = $("<div id='hand-card"+i+"' class='hand-card'>■</div>").appendTo("#opponent-hand");
     });
 
   } else if(msg_analyzed.tag=="WhereToPlace"){
