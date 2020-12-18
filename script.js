@@ -20,10 +20,10 @@ var who_i_am = true;
 
 function initField(){
   function one(name){
-    [0,1,2,3,4].forEach(function(i){
+    for(var i=0; i<40; i++){
       monster_zone = $("#"+name + "> .monster-zone");
       var zone_i = $("<div class='zone-"+i+" zone'>").appendTo(monster_zone);
-    });
+    }
   }
   one("myself");
   one("opponent");

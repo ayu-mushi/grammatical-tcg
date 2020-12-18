@@ -20,7 +20,7 @@ showCard x = show x
 
 showMyTree :: MyTree Card -> String
 showMyTree (Leaf x) = showCard x
-showMyTree (Node x trees) = show x ++ "(" ++ (intercalate "," $ map showMyTree trees) ++ ")"
+showMyTree (Node x trees) = "[" ++ showMyTree x ++"]"++ "(" ++ (intercalate "," $ map showMyTree trees) ++ ")"
 
 $(Aeson.deriveJSON Aeson.defaultOptions ''Card)
 $(Aeson.deriveJSON Aeson.defaultOptions ''MyTree)

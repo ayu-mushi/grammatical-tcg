@@ -78,8 +78,8 @@ defaultClient :: ClientValue
 defaultClient = ClientValue {_sente=Nothing, _gote=Nothing, _audience=[]}
 
 removeClient :: Bool -> ClientValue -> (ClientValue, ())
-removeClient True cs = (defaultClient, ())
-removeClient False cs = (defaultClient, ())
+removeClient True cs = error "removeClient"
+removeClient False cs = error "removeClient"
 
 selectClient :: Bool -> Lens' ClientValue (Maybe Client)
 selectClient True = sente
@@ -107,18 +107,21 @@ startGame ref pending = do
   identifier <- atomicModifyIORef ref (addClient conn)
 
   game <- initialGame
+
   if identifier then
     flip finally (disconnect identifier) $ S.void $ (`S.runStateT` game) $ forever $ do
       conns <- liftIO $ readIORef ref
       case conns of
         ClientValue { _sente=Just _, _gote = Just _ } -> do
           count <- (^. turn_count) <$> S.get
-          S.when (count==0) $ liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
-          printAsText True conns $ YouAre True
-          printAsText False conns $ YouAre False
+
+          S.when (count==0) $ do
+            liftIO $ broadcast conns $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Message "Game start"
+            printAsText True conns $ YouAre True
+            printAsText False conns $ YouAre False
 
           gameLoop identifier conns
-          turn_count += 1
+
           return ()
         ClientValue _ _ _ -> do
           liftIO $ threadDelay $ 20 * 1000
@@ -129,9 +132,11 @@ startGame ref pending = do
     disconnect player = atomicModifyIORef ref (removeClient player)
     gameLoop identifier conns = do
       conns <- liftIO $ readIORef ref
-      gamePlay identifier conns
-      conns <- liftIO $ readIORef ref
-      gamePlay (not identifier) conns
+      gameState <- S.get
+      if even (gameState ^. turn_count)
+         then gamePlay identifier conns
+         else gamePlay (not identifier) conns
+      turn_count += 1
 
 toJSONText :: (Aeson.ToJSON j) => j -> T.Text
 toJSONText = Text.decodeUtf8 . LB.toStrict . Aeson.encode
@@ -144,7 +149,7 @@ app req respond =
     respond $ responseFile status200 [(hContentType, "text/css")] "style.css" Nothing
   else if pathInfo req == ["script.js"] then
     respond $ responseFile status200 [(hContentType, "text/javascript")] "script.js" Nothing
-  else
+  else do
     respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
 
 -- 対称性
@@ -214,7 +219,7 @@ effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
   printAsText turn clients $ Message $ "Trashの効果: 手札を" ++ show how_many_card_you_trash ++ "枚捨てる。"
 
   replicateM_ how_many_card_you_trash $ do
-    ((selectPlayer turn . hands) %= trashOne)
+    (selectPlayer turn . hands) %= trashOne
     liftIO $ threadDelay $ 1000*100
     liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
@@ -231,9 +236,10 @@ effectWhenSummoned turn clients (Node (Leaf Draw) [formula]) = do
   gameState <- S.get
   let how_many_card_opponent_draw = (evalFormula formula)
 
-  printAsText turn clients $ Message $ "Drawの効果: 相手は手札を" ++ show how_many_card_opponent_draw ++ "枚引く。"
   let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
-  printAsText turn clients $ Message $ "相手の手札の枚数: " ++ show handsMaisu
+  printAsText turn clients $ Message $ "相手の手札の更新前枚数: " ++ show handsMaisu
+
+  printAsText turn clients $ Message $ "Drawの効果: 相手は手札を" ++ show how_many_card_opponent_draw ++ "枚引く。"
 
   replicateM_ how_many_card_opponent_draw $ do
     (selectPlayer (not turn)) %= S.execState drawToHand
@@ -242,18 +248,29 @@ effectWhenSummoned turn clients (Node (Leaf Draw) [formula]) = do
 
   gameState <- S.get
   let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
-  printAsText turn clients $ Message $ "相手の手札の残り枚数: " ++ show handsMaisu
+  printAsText turn clients $ Message $ "相手の手札の更新後枚数: " ++ show handsMaisu
 
 effectWhenSummoned turn clients (Node (Leaf Double) [formula]) = do
   printAsText turn clients $ Message $ "Doubleの効果: " ++ showMyTree formula++ "を2回行う。"
-  printAsText turn clients $ Message $ "1回目: "
+  printAsText turn clients $ Message $ "1回目↑"
   effectWhenSummoned turn clients formula
-  printAsText turn clients $ Message $ "2回目: "
+  printAsText turn clients $ Message $ "2回目↑"
   effectWhenSummoned turn clients formula
-effectWhenSummoned turn clients (Node (Leaf Skip) []) = do
+
+effectWhenSummoned turn clients (Leaf Skip) = do
+  printAsText turn clients $ Message $ "Skipの効果: "++ "相手のターンをスキップする。"
+  gameState <- S.get
+  printAsText turn clients $ Message $ "効果前: " ++ show (gameState ^. turn_count) ++ "ターン目"
+  turn_count += 1
+  gameState <- S.get
+  printAsText turn clients $ Message $ "効果後: " ++ show (gameState ^. turn_count) ++ "ターン目"
   return ()
+
 effectWhenSummoned turn clients monster = return ()
 
+
+routineEffect ::  (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m () -- TODO: 関心の分離
+routineEffect turn clients monster = undefined
 
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
@@ -311,7 +328,6 @@ treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree
 
   name node_id = LazyT.pack $ "node_"++(show node_id)
 
--- hoverで情報表示
 someFunc :: IO ()
 someFunc = do
   env <- getEnvironment
@@ -326,3 +342,4 @@ someFunc = do
 
   -- カードの名称と効果を記述するDSL
   -- プログラミング言語を作るDSL?
+  -- hoverで情報表示

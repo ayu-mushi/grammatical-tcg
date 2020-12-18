@@ -95,7 +95,7 @@ initialPlayer = do
   return $ PlayerState {
     _hands=[]
     ,_deck=d
-    ,_field=V.replicate 5 Nothing
+    ,_field=V.replicate 40 Nothing
     , _lifepoint=8000
     }
 
