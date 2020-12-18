@@ -124,12 +124,14 @@ data GSem
  | Sem_0 (MyTree Card -> MyTree Card -> MyTree Card) 
  | Sem_1 (MyTree Card -> MyTree Card) 
  | Sem_2 (MyTree Card) 
- | Sem_3 (MyTree Card -> MyTree Card -> MyTree Card -> MyTree Card) 
+ | Sem_3 (MyTree Card -> MyTree Card -> MyTree Card) 
+ | Sem_4 (MyTree Card -> MyTree Card -> MyTree Card -> MyTree Card) 
 instance Show GSem where
   show Sem_0{} = "Sem_0"
   show Sem_1{} = "Sem_1"
   show Sem_2{} = "Sem_2"
   show Sem_3{} = "Sem_3"
+  show Sem_4{} = "Sem_4"
 
 
 semfn_0_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_0 (\happy_var_1 -> \happy_var_2 -> Node happy_var_1 [happy_var_2])) ns
@@ -143,7 +145,8 @@ semfn_2_3 ns@(happy_rest) =  Branch (Sem_2 (Leaf Adv)) ns
 semfn_2_4 ns@(happy_rest) =  Branch (Sem_2 (Leaf One)) ns
 semfn_2_5 ns@(happy_rest) =  Branch (Sem_2 (Leaf Two)) ns
 semfn_2_6 ns@(happy_rest) =  Branch (Sem_2 (Leaf (:+:))) ns
-semfn_3_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_3 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Node happy_var_2 [happy_var_1, happy_var_3])) ns
+semfn_3_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_3 (\happy_var_1 -> \happy_var_3 -> Node (Leaf And) [happy_var_1, happy_var_3])) ns
+semfn_4_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_4 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Node happy_var_2 [happy_var_1, happy_var_3])) ns
 
 
 type Decode_Result a = a
@@ -153,7 +156,8 @@ instance TreeDecode (MyTree Card) where
   decode_b f (Branch (Sem_0 s) (b_0:b_1:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1)
   decode_b f (Branch (Sem_1 s) (b_0:b_1:_)) = (cross_fn [s] $ decode f b_1)
   decode_b f (Branch (Sem_2 s) (_)) = [s]
-  decode_b f (Branch (Sem_3 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1) $ decode f b_2)
+  decode_b f (Branch (Sem_3 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_2)
+  decode_b f (Branch (Sem_4 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1) $ decode f b_2)
 
 
 
@@ -171,8 +175,9 @@ action 0 ( HappyTok (Draw) ) = Shift 8 []
 action 0 ( HappyTok (Skip) ) = Shift 9 []
 action 0 ( HappyTok (Double) ) = Shift 10 []
 action 1 ( HappyTok (F) ) = Shift 3 []
-action 2 ( HappyTok (X) ) = Shift 18 []
-action 3 ( HappyTok (X) ) = Reduce [red_7]
+action 2 ( HappyTok (X) ) = Shift 19 []
+action 3 ( HappyTok (X) ) = Reduce [red_8]
+action 4 ( HappyTok (And) ) = Shift 17 []
 action 4 ( HappyEOF ) = Accept
 action 5 ( HappyTok (F) ) = Shift 3 []
 action 5 ( HappyTok (Trash) ) = Shift 6 []
@@ -182,14 +187,15 @@ action 5 ( HappyTok (Skip) ) = Shift 9 []
 action 5 ( HappyTok (Double) ) = Shift 10 []
 action 6 ( HappyTok (One) ) = Shift 13 []
 action 6 ( HappyTok (Two) ) = Shift 14 []
-action 7 ( HappyTok (F) ) = Reduce [red_9]
-action 7 ( HappyTok (Trash) ) = Reduce [red_9]
-action 7 ( HappyTok (Adv) ) = Reduce [red_9]
-action 7 ( HappyTok (Draw) ) = Reduce [red_9]
-action 7 ( HappyTok (Skip) ) = Reduce [red_9]
-action 7 ( HappyTok (Double) ) = Reduce [red_9]
+action 7 ( HappyTok (F) ) = Reduce [red_10]
+action 7 ( HappyTok (Trash) ) = Reduce [red_10]
+action 7 ( HappyTok (Adv) ) = Reduce [red_10]
+action 7 ( HappyTok (Draw) ) = Reduce [red_10]
+action 7 ( HappyTok (Skip) ) = Reduce [red_10]
+action 7 ( HappyTok (Double) ) = Reduce [red_10]
 action 8 ( HappyTok (One) ) = Shift 13 []
 action 8 ( HappyTok (Two) ) = Shift 14 []
+action 9 ( HappyTok (And) ) = Reduce [red_5]
 action 9 ( HappyEOF ) = Reduce [red_5]
 action 10 ( HappyTok (F) ) = Shift 3 []
 action 10 ( HappyTok (Trash) ) = Shift 6 []
@@ -197,24 +203,41 @@ action 10 ( HappyTok (Adv) ) = Shift 7 []
 action 10 ( HappyTok (Draw) ) = Shift 8 []
 action 10 ( HappyTok (Skip) ) = Shift 9 []
 action 10 ( HappyTok (Double) ) = Shift 10 []
+action 11 ( HappyTok (And) ) = Shift 17 [red_6]
 action 11 ( HappyEOF ) = Reduce [red_6]
-action 12 ( HappyTok ((:+:)) ) = Shift 20 []
+action 12 ( HappyTok ((:+:)) ) = Shift 22 []
+action 12 ( HappyTok (And) ) = Reduce [red_4]
 action 12 ( HappyEOF ) = Reduce [red_4]
-action 13 ( HappyTok ((:+:)) ) = Reduce [red_10]
-action 13 ( HappyEOF ) = Reduce [red_10]
-action 14 ( HappyTok ((:+:)) ) = Reduce [red_11]
-action 14 ( HappyEOF ) = Reduce [red_11]
-action 15 ( HappyTok ((:+:)) ) = Shift 20 []
+action 13 ( HappyTok ((:+:)) ) = Reduce [red_11]
+action 13 ( HappyTok (And) ) = Reduce [red_11]
+action 13 ( HappyEOF ) = Reduce [red_11]
+action 14 ( HappyTok ((:+:)) ) = Reduce [red_12]
+action 14 ( HappyTok (And) ) = Reduce [red_12]
+action 14 ( HappyEOF ) = Reduce [red_12]
+action 15 ( HappyTok ((:+:)) ) = Shift 22 []
+action 15 ( HappyTok (And) ) = Reduce [red_3]
 action 15 ( HappyEOF ) = Reduce [red_3]
+action 16 ( HappyTok (And) ) = Shift 17 [red_2]
 action 16 ( HappyEOF ) = Reduce [red_2]
-action 17 ( HappyEOF ) = Reduce [red_1]
-action 18 ( HappyEOF ) = Reduce [red_8]
-action 19 ( HappyTok (One) ) = Shift 13 []
-action 19 ( HappyTok (Two) ) = Shift 14 []
-action 20 ( HappyTok (One) ) = Reduce [red_13]
-action 20 ( HappyTok (Two) ) = Reduce [red_13]
-action 21 ( HappyTok ((:+:)) ) = Shift 20 [red_12]
-action 21 ( HappyEOF ) = Reduce [red_12]
+action 17 ( HappyTok (F) ) = Shift 3 []
+action 17 ( HappyTok (Trash) ) = Shift 6 []
+action 17 ( HappyTok (Adv) ) = Shift 7 []
+action 17 ( HappyTok (Draw) ) = Shift 8 []
+action 17 ( HappyTok (Skip) ) = Shift 9 []
+action 17 ( HappyTok (Double) ) = Shift 10 []
+action 18 ( HappyTok (And) ) = Reduce [red_1]
+action 18 ( HappyEOF ) = Reduce [red_1]
+action 19 ( HappyTok (And) ) = Reduce [red_9]
+action 19 ( HappyEOF ) = Reduce [red_9]
+action 20 ( HappyTok (And) ) = Shift 17 [red_7]
+action 20 ( HappyEOF ) = Reduce [red_7]
+action 21 ( HappyTok (One) ) = Shift 13 []
+action 21 ( HappyTok (Two) ) = Shift 14 []
+action 22 ( HappyTok (One) ) = Reduce [red_14]
+action 22 ( HappyTok (Two) ) = Reduce [red_14]
+action 23 ( HappyTok ((:+:)) ) = Shift 22 [red_13]
+action 23 ( HappyTok (And) ) = Reduce [red_13]
+action 23 ( HappyEOF ) = Reduce [red_13]
 action _ _ = Error
 red_1 = (G_S,2 :: Int,semfn_0_0)
 red_2 = (G_S,2 :: Int,semfn_0_0)
@@ -222,20 +245,21 @@ red_3 = (G_S,2 :: Int,semfn_1_0)
 red_4 = (G_S,2 :: Int,semfn_1_1)
 red_5 = (G_S,1 :: Int,semfn_2_0)
 red_6 = (G_S,2 :: Int,semfn_1_2)
-red_7 = (G_Pred,1 :: Int,semfn_2_1)
-red_8 = (G_Noun,1 :: Int,semfn_2_2)
-red_9 = (G_Adverb,1 :: Int,semfn_2_3)
-red_10 = (G_Num,1 :: Int,semfn_2_4)
-red_11 = (G_Num,1 :: Int,semfn_2_5)
-red_12 = (G_Num,3 :: Int,semfn_3_0)
-red_13 = (G_Op,1 :: Int,semfn_2_6)
+red_7 = (G_S,3 :: Int,semfn_3_0)
+red_8 = (G_Pred,1 :: Int,semfn_2_1)
+red_9 = (G_Noun,1 :: Int,semfn_2_2)
+red_10 = (G_Adverb,1 :: Int,semfn_2_3)
+red_11 = (G_Num,1 :: Int,semfn_2_4)
+red_12 = (G_Num,1 :: Int,semfn_2_5)
+red_13 = (G_Num,3 :: Int,semfn_4_0)
+red_14 = (G_Op,1 :: Int,semfn_2_6)
 goto 0 G_S = 4
 goto 0 G_Pred = 2
 goto 0 G_Adverb = 5
 
 goto 1 G_Pred = 2
 
-goto 2 G_Noun = 17
+goto 2 G_Noun = 18
 
 goto 5 G_S = 16
 goto 5 G_Pred = 2
@@ -249,12 +273,16 @@ goto 10 G_S = 11
 goto 10 G_Pred = 2
 goto 10 G_Adverb = 5
 
-goto 12 G_Op = 19
+goto 12 G_Op = 21
 
-goto 15 G_Op = 19
+goto 15 G_Op = 21
 
-goto 19 G_Num = 21
+goto 17 G_S = 20
+goto 17 G_Pred = 2
+goto 17 G_Adverb = 5
 
-goto 21 G_Op = 19
+goto 21 G_Num = 23
+
+goto 23 G_Op = 21
 
 goto _ _ = -1

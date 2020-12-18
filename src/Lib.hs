@@ -250,21 +250,26 @@ effectWhenSummoned turn clients (Node (Leaf Draw) [formula]) = do
   let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
   printAsText turn clients $ Message $ "相手の手札の更新後枚数: " ++ show handsMaisu
 
-effectWhenSummoned turn clients (Node (Leaf Double) [formula]) = do
-  printAsText turn clients $ Message $ "Doubleの効果: " ++ showMyTree formula++ "を2回行う。"
+effectWhenSummoned turn clients (Node (Leaf Double) [sentence]) = do
+  printAsText turn clients $ Message $ "Doubleの効果: " ++ showMyTree sentence++ "を2回行う。"
   printAsText turn clients $ Message $ "1回目↑"
-  effectWhenSummoned turn clients formula
+  effectWhenSummoned turn clients sentence
   printAsText turn clients $ Message $ "2回目↑"
-  effectWhenSummoned turn clients formula
+  effectWhenSummoned turn clients sentence
 
 effectWhenSummoned turn clients (Leaf Skip) = do
-  printAsText turn clients $ Message $ "Skipの効果: "++ "相手のターンをスキップする。"
   gameState <- S.get
   printAsText turn clients $ Message $ "効果前: " ++ show (gameState ^. turn_count) ++ "ターン目"
+  printAsText turn clients $ Message $ "Skipの効果: "++ "相手のターンをスキップする。"
   turn_count += 1
   gameState <- S.get
   printAsText turn clients $ Message $ "効果後: " ++ show (gameState ^. turn_count) ++ "ターン目"
   return ()
+
+effectWhenSummoned turn clients (Node (Leaf And) [sentence1, sentence2]) = do
+  printAsText turn clients $ Message $ "Andの効果: " ++ showMyTree sentence1 ++ "と"++showMyTree sentence2 ++ "を続けて行う。"
+  effectWhenSummoned turn clients sentence1
+  effectWhenSummoned turn clients sentence2
 
 effectWhenSummoned turn clients monster = return ()
 

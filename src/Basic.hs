@@ -5,7 +5,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.TH as Aeson
 import Data.List (intercalate)
 
-data Card = F | X | Adv | (:+:) | One | Two | Trash | Draw | Skip | Double
+data Card = F | X | Adv | (:+:) | One | Two | Trash | Draw | Skip | Double | And
   deriving (Enum,Show,Eq,Read,Ord)
 
 
@@ -15,6 +15,7 @@ data MyTree a = Leaf a | Node (MyTree a) [MyTree a] deriving (Show, Eq, Read)
 showCard :: Card -> String
 showCard One = "1"
 showCard Two = "2"
+showCard And = "and"
 showCard (:+:) = "+"
 showCard x = show x
 

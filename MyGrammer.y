@@ -20,6 +20,7 @@ import Basic
   Draw { Draw }
   Skip { Skip }
   Double { Double }
+  And { And }
 
 %%
 
@@ -30,6 +31,7 @@ S :: {MyTree Card}
   | Draw Num { Node (Leaf Draw) [$2] }
   | Skip { (Leaf Skip) }
   | Double S { Node (Leaf Double) [$2] }
+  | S And S { Node (Leaf And) [$1, $3] }
 
 Pred :: {MyTree Card}
      : F { Leaf F }
