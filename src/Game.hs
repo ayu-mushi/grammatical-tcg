@@ -24,8 +24,8 @@ import qualified Data.Aeson.TH as Aeson
 import Data.List (null)
 
 import Control.Exception (finally)
-import Control.Monad(forever)
-import qualified Data.Text as T(Text,pack, unpack)
+import Control.Monad (forever)
+import qualified Data.Text as T (Text, pack, unpack)
 import Basic
 
 
@@ -61,7 +61,7 @@ initDeck = do
   replicateM 40 $ do
     r <- randomRIO (0, 6) :: IO Int
     return $ toEnum r :: IO Card
-  return $ concat $ replicate 100 [(:+:),One,Two,Trash]
+  return $ concat $ replicate 100 [(:+:),One,Two,Trash, Skip, Draw, Double]
 
 
 -- カードを配る

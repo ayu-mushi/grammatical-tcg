@@ -17,6 +17,9 @@ import Basic
   N { N }
   Trash { Trash }
   Adv { Adv }
+  Draw { Draw }
+  Skip { Skip }
+  Double { Double }
 
 %%
 
@@ -24,6 +27,9 @@ S :: {MyTree Card}
   : Pred Noun { Node $1 [$2] }
   | Adverb S { Node $1 [$2] }
   | Trash Num { Node (Leaf Trash) [$2] }
+  | Draw Num { Node (Leaf Draw) [$2] }
+  | Skip { (Leaf Skip) }
+  | Double S { Node (Leaf Double) [$2] }
 
 Pred :: {MyTree Card}
      : F { Leaf F }

@@ -5,7 +5,7 @@
 module Lib where
 
 import Control.Monad (forM, forM_, replicateM, replicateM_, guard, mzero, mplus)
-import Control.Monad.Trans(MonadIO, lift,liftIO)
+import Control.Monad.Trans (MonadIO, lift,liftIO)
 import System.Random
 import qualified Control.Monad.State as S
 import System.Environment (getEnvironment)
@@ -142,6 +142,8 @@ app req respond =
     respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
   else if pathInfo req == ["style.css"] then
     respond $ responseFile status200 [(hContentType, "text/css")] "style.css" Nothing
+  else if pathInfo req == ["script.js"] then
+    respond $ responseFile status200 [(hContentType, "text/javascript")] "script.js" Nothing
   else
     respond $ responseFile status200 [(hContentType, "text/html")] "index.html" Nothing
 
@@ -202,7 +204,7 @@ inputAndParseLoop identifier clients = do
       liftIO $ threadDelay $ 1000*1000
       inputAndParseLoop identifier clients
 
-effectWhenSummoned :: (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m ()
+effectWhenSummoned :: (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m () -- TODO: 関心の分離
 effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
   gameState <- S.get
   let handsMaisu = length $ gameState ^. (selectPlayer turn . hands)
@@ -223,6 +225,33 @@ effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
   where
    trashOne [] = []
    trashOne (x:xs) = xs
+
+
+effectWhenSummoned turn clients (Node (Leaf Draw) [formula]) = do
+  gameState <- S.get
+  let how_many_card_opponent_draw = (evalFormula formula)
+
+  printAsText turn clients $ Message $ "Drawの効果: 相手は手札を" ++ show how_many_card_opponent_draw ++ "枚引く。"
+  let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
+  printAsText turn clients $ Message $ "相手の手札の枚数: " ++ show handsMaisu
+
+  replicateM_ how_many_card_opponent_draw $ do
+    (selectPlayer (not turn)) %= S.execState drawToHand
+    liftIO $ threadDelay $ 1000*100
+    liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+
+  gameState <- S.get
+  let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
+  printAsText turn clients $ Message $ "相手の手札の残り枚数: " ++ show handsMaisu
+
+effectWhenSummoned turn clients (Node (Leaf Double) [formula]) = do
+  printAsText turn clients $ Message $ "Doubleの効果: " ++ showMyTree formula++ "を2回行う。"
+  printAsText turn clients $ Message $ "1回目: "
+  effectWhenSummoned turn clients formula
+  printAsText turn clients $ Message $ "2回目: "
+  effectWhenSummoned turn clients formula
+effectWhenSummoned turn clients (Node (Leaf Skip) []) = do
+  return ()
 effectWhenSummoned turn clients monster = return ()
 
 
@@ -234,6 +263,7 @@ gamePlay identifier clients = do
 
   -- ドロー
   (selectPlayer identifier) %= S.execState drawToHand
+
 
   -- summon
   choices <- inputAndParseLoop identifier clients
@@ -268,7 +298,6 @@ gamePlay identifier clients = do
 treeToGraph :: MyTree Card -> LazyT.Text
 treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree
 
-
   where
   treeToGraph' :: [Int] -> MyTree Card -> DotM LazyT.Text ([Int])
   treeToGraph' node_id (Leaf x) = do
@@ -296,3 +325,4 @@ someFunc = do
 
 
   -- カードの名称と効果を記述するDSL
+  -- プログラミング言語を作るDSL?
