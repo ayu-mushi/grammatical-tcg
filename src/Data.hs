@@ -115,17 +115,19 @@ data GSymbol = HappyEOF | HappyTok {-!Int-} (Card) | G_S
  | G_Noun 
  | G_Adverb 
  | G_Num 
+ | G_Exe 
  | G_Op 
+ | G_Player 
    deriving (Show,Eq,Ord)
 
 data GSem
  = NoSem
  | SemTok (Card)
  | Sem_0 (MyTree Card -> MyTree Card -> MyTree Card) 
- | Sem_1 (MyTree Card -> MyTree Card) 
+ | Sem_1 (MyTree Card -> MyTree Card -> MyTree Card -> MyTree Card) 
  | Sem_2 (MyTree Card) 
- | Sem_3 (MyTree Card -> MyTree Card -> MyTree Card) 
- | Sem_4 (MyTree Card -> MyTree Card -> MyTree Card -> MyTree Card) 
+ | Sem_3 (MyTree Card -> MyTree Card) 
+ | Sem_4 (MyTree Card -> MyTree Card -> MyTree Card) 
 instance Show GSem where
   show Sem_0{} = "Sem_0"
   show Sem_1{} = "Sem_1"
@@ -135,18 +137,22 @@ instance Show GSem where
 
 
 semfn_0_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_0 (\happy_var_1 -> \happy_var_2 -> Node happy_var_1 [happy_var_2])) ns
-semfn_1_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_1 (\happy_var_2 -> Node (Leaf Trash) [happy_var_2])) ns
-semfn_1_1 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_1 (\happy_var_2 -> Node (Leaf Draw) [happy_var_2])) ns
-semfn_1_2 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_1 (\happy_var_2 -> Node (Leaf Double) [happy_var_2])) ns
+semfn_1_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_1 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> (Node happy_var_1 [happy_var_2, happy_var_3]))) ns
+semfn_1_1 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_1 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Node happy_var_2 [happy_var_1, happy_var_3])) ns
 semfn_2_0 ns@(happy_rest) =  Branch (Sem_2 ((Leaf Skip))) ns
 semfn_2_1 ns@(happy_rest) =  Branch (Sem_2 (Leaf F)) ns
 semfn_2_2 ns@(happy_rest) =  Branch (Sem_2 (Leaf X)) ns
 semfn_2_3 ns@(happy_rest) =  Branch (Sem_2 (Leaf Adv)) ns
 semfn_2_4 ns@(happy_rest) =  Branch (Sem_2 (Leaf One)) ns
 semfn_2_5 ns@(happy_rest) =  Branch (Sem_2 (Leaf Two)) ns
-semfn_2_6 ns@(happy_rest) =  Branch (Sem_2 (Leaf (:+:))) ns
-semfn_3_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_3 (\happy_var_1 -> \happy_var_3 -> Node (Leaf And) [happy_var_1, happy_var_3])) ns
-semfn_4_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_4 (\happy_var_1 -> \happy_var_2 -> \happy_var_3 -> Node happy_var_2 [happy_var_1, happy_var_3])) ns
+semfn_2_6 ns@(happy_rest) =  Branch (Sem_2 (Leaf Trash)) ns
+semfn_2_7 ns@(happy_rest) =  Branch (Sem_2 (Leaf Draw)) ns
+semfn_2_8 ns@(happy_rest) =  Branch (Sem_2 (Leaf (:+:))) ns
+semfn_2_9 ns@(happy_rest) =  Branch (Sem_2 ((Leaf You))) ns
+semfn_2_10 ns@(happy_rest) =  Branch (Sem_2 ((Leaf Me))) ns
+semfn_3_0 ns@(happy_var_1:happy_var_2:happy_rest) =  Branch (Sem_3 (\happy_var_2 -> Node (Leaf Double) [happy_var_2])) ns
+semfn_4_0 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_4 (\happy_var_1 -> \happy_var_3 -> Node (Leaf And) [happy_var_1, happy_var_3])) ns
+semfn_4_1 ns@(happy_var_1:happy_var_2:happy_var_3:happy_rest) =  Branch (Sem_4 (\happy_var_1 -> \happy_var_3 -> (Node (Leaf And)[happy_var_1, happy_var_3]))) ns
 
 
 type Decode_Result a = a
@@ -154,10 +160,10 @@ happy_ap = ($)
 happy_return = id
 instance TreeDecode (MyTree Card) where 
   decode_b f (Branch (Sem_0 s) (b_0:b_1:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1)
-  decode_b f (Branch (Sem_1 s) (b_0:b_1:_)) = (cross_fn [s] $ decode f b_1)
+  decode_b f (Branch (Sem_1 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1) $ decode f b_2)
   decode_b f (Branch (Sem_2 s) (_)) = [s]
-  decode_b f (Branch (Sem_3 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_2)
-  decode_b f (Branch (Sem_4 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_1) $ decode f b_2)
+  decode_b f (Branch (Sem_3 s) (b_0:b_1:_)) = (cross_fn [s] $ decode f b_1)
+  decode_b f (Branch (Sem_4 s) (b_0:b_1:b_2:_)) = (cross_fn (cross_fn [s] $ decode f b_0) $ decode f b_2)
 
 
 
@@ -169,120 +175,152 @@ instance LabelDecode (Card) where
 
 
 action 0 ( HappyTok (F) ) = Shift 3 []
-action 0 ( HappyTok (Trash) ) = Shift 6 []
-action 0 ( HappyTok (Adv) ) = Shift 7 []
-action 0 ( HappyTok (Draw) ) = Shift 8 []
-action 0 ( HappyTok (Skip) ) = Shift 9 []
-action 0 ( HappyTok (Double) ) = Shift 10 []
+action 0 ( HappyTok (Trash) ) = Shift 7 []
+action 0 ( HappyTok (Adv) ) = Shift 8 []
+action 0 ( HappyTok (Draw) ) = Shift 9 []
+action 0 ( HappyTok (Skip) ) = Shift 10 []
+action 0 ( HappyTok (Double) ) = Shift 11 []
 action 1 ( HappyTok (F) ) = Shift 3 []
-action 2 ( HappyTok (X) ) = Shift 19 []
-action 3 ( HappyTok (X) ) = Reduce [red_8]
-action 4 ( HappyTok (And) ) = Shift 17 []
+action 2 ( HappyTok (X) ) = Shift 20 []
+action 3 ( HappyTok (X) ) = Reduce [red_7]
+action 4 ( HappyTok (And) ) = Shift 18 []
 action 4 ( HappyEOF ) = Accept
 action 5 ( HappyTok (F) ) = Shift 3 []
-action 5 ( HappyTok (Trash) ) = Shift 6 []
-action 5 ( HappyTok (Adv) ) = Shift 7 []
-action 5 ( HappyTok (Draw) ) = Shift 8 []
-action 5 ( HappyTok (Skip) ) = Shift 9 []
-action 5 ( HappyTok (Double) ) = Shift 10 []
-action 6 ( HappyTok (One) ) = Shift 13 []
-action 6 ( HappyTok (Two) ) = Shift 14 []
-action 7 ( HappyTok (F) ) = Reduce [red_10]
-action 7 ( HappyTok (Trash) ) = Reduce [red_10]
-action 7 ( HappyTok (Adv) ) = Reduce [red_10]
-action 7 ( HappyTok (Draw) ) = Reduce [red_10]
-action 7 ( HappyTok (Skip) ) = Reduce [red_10]
-action 7 ( HappyTok (Double) ) = Reduce [red_10]
-action 8 ( HappyTok (One) ) = Shift 13 []
-action 8 ( HappyTok (Two) ) = Shift 14 []
-action 9 ( HappyTok (And) ) = Reduce [red_5]
-action 9 ( HappyEOF ) = Reduce [red_5]
-action 10 ( HappyTok (F) ) = Shift 3 []
-action 10 ( HappyTok (Trash) ) = Shift 6 []
-action 10 ( HappyTok (Adv) ) = Shift 7 []
-action 10 ( HappyTok (Draw) ) = Shift 8 []
-action 10 ( HappyTok (Skip) ) = Shift 9 []
-action 10 ( HappyTok (Double) ) = Shift 10 []
-action 11 ( HappyTok (And) ) = Shift 17 [red_6]
-action 11 ( HappyEOF ) = Reduce [red_6]
-action 12 ( HappyTok ((:+:)) ) = Shift 22 []
-action 12 ( HappyTok (And) ) = Reduce [red_4]
-action 12 ( HappyEOF ) = Reduce [red_4]
-action 13 ( HappyTok ((:+:)) ) = Reduce [red_11]
-action 13 ( HappyTok (And) ) = Reduce [red_11]
-action 13 ( HappyEOF ) = Reduce [red_11]
-action 14 ( HappyTok ((:+:)) ) = Reduce [red_12]
-action 14 ( HappyTok (And) ) = Reduce [red_12]
-action 14 ( HappyEOF ) = Reduce [red_12]
-action 15 ( HappyTok ((:+:)) ) = Shift 22 []
-action 15 ( HappyTok (And) ) = Reduce [red_3]
-action 15 ( HappyEOF ) = Reduce [red_3]
-action 16 ( HappyTok (And) ) = Shift 17 [red_2]
-action 16 ( HappyEOF ) = Reduce [red_2]
-action 17 ( HappyTok (F) ) = Shift 3 []
-action 17 ( HappyTok (Trash) ) = Shift 6 []
-action 17 ( HappyTok (Adv) ) = Shift 7 []
-action 17 ( HappyTok (Draw) ) = Shift 8 []
-action 17 ( HappyTok (Skip) ) = Shift 9 []
-action 17 ( HappyTok (Double) ) = Shift 10 []
-action 18 ( HappyTok (And) ) = Reduce [red_1]
-action 18 ( HappyEOF ) = Reduce [red_1]
-action 19 ( HappyTok (And) ) = Reduce [red_9]
-action 19 ( HappyEOF ) = Reduce [red_9]
-action 20 ( HappyTok (And) ) = Shift 17 [red_7]
-action 20 ( HappyEOF ) = Reduce [red_7]
-action 21 ( HappyTok (One) ) = Shift 13 []
-action 21 ( HappyTok (Two) ) = Shift 14 []
-action 22 ( HappyTok (One) ) = Reduce [red_14]
-action 22 ( HappyTok (Two) ) = Reduce [red_14]
-action 23 ( HappyTok ((:+:)) ) = Shift 22 [red_13]
-action 23 ( HappyTok (And) ) = Reduce [red_13]
-action 23 ( HappyEOF ) = Reduce [red_13]
+action 5 ( HappyTok (Trash) ) = Shift 7 []
+action 5 ( HappyTok (Adv) ) = Shift 8 []
+action 5 ( HappyTok (Draw) ) = Shift 9 []
+action 5 ( HappyTok (Skip) ) = Shift 10 []
+action 5 ( HappyTok (Double) ) = Shift 11 []
+action 6 ( HappyTok (And) ) = Shift 14 []
+action 6 ( HappyTok (Me) ) = Shift 15 []
+action 6 ( HappyTok (You) ) = Shift 16 []
+action 7 ( HappyTok (And) ) = Reduce [red_13]
+action 7 ( HappyTok (Me) ) = Reduce [red_13]
+action 7 ( HappyTok (You) ) = Reduce [red_13]
+action 8 ( HappyTok (F) ) = Reduce [red_9]
+action 8 ( HappyTok (Trash) ) = Reduce [red_9]
+action 8 ( HappyTok (Adv) ) = Reduce [red_9]
+action 8 ( HappyTok (Draw) ) = Reduce [red_9]
+action 8 ( HappyTok (Skip) ) = Reduce [red_9]
+action 8 ( HappyTok (Double) ) = Reduce [red_9]
+action 9 ( HappyTok (And) ) = Reduce [red_14]
+action 9 ( HappyTok (Me) ) = Reduce [red_14]
+action 9 ( HappyTok (You) ) = Reduce [red_14]
+action 10 ( HappyTok (And) ) = Reduce [red_4]
+action 10 ( HappyEOF ) = Reduce [red_4]
+action 11 ( HappyTok (F) ) = Shift 3 []
+action 11 ( HappyTok (Trash) ) = Shift 7 []
+action 11 ( HappyTok (Adv) ) = Shift 8 []
+action 11 ( HappyTok (Draw) ) = Shift 9 []
+action 11 ( HappyTok (Skip) ) = Shift 10 []
+action 11 ( HappyTok (Double) ) = Shift 11 []
+action 12 ( HappyTok (And) ) = Shift 18 [red_5]
+action 12 ( HappyEOF ) = Reduce [red_5]
+action 13 ( HappyTok (One) ) = Shift 24 []
+action 13 ( HappyTok (Two) ) = Shift 25 []
+action 13 ( HappyTok (And) ) = Shift 26 []
+action 14 ( HappyTok (Trash) ) = Shift 7 []
+action 14 ( HappyTok (Draw) ) = Shift 9 []
+action 15 ( HappyTok (One) ) = Reduce [red_18]
+action 15 ( HappyTok (Two) ) = Reduce [red_18]
+action 15 ( HappyTok (And) ) = Reduce [red_18]
+action 16 ( HappyTok (One) ) = Reduce [red_17]
+action 16 ( HappyTok (Two) ) = Reduce [red_17]
+action 16 ( HappyTok (And) ) = Reduce [red_17]
+action 17 ( HappyTok (And) ) = Shift 18 [red_2]
+action 17 ( HappyEOF ) = Reduce [red_2]
+action 18 ( HappyTok (F) ) = Shift 3 []
+action 18 ( HappyTok (Trash) ) = Shift 7 []
+action 18 ( HappyTok (Adv) ) = Shift 8 []
+action 18 ( HappyTok (Draw) ) = Shift 9 []
+action 18 ( HappyTok (Skip) ) = Shift 10 []
+action 18 ( HappyTok (Double) ) = Shift 11 []
+action 19 ( HappyTok (And) ) = Reduce [red_1]
+action 19 ( HappyEOF ) = Reduce [red_1]
+action 20 ( HappyTok (And) ) = Reduce [red_8]
+action 20 ( HappyEOF ) = Reduce [red_8]
+action 21 ( HappyTok (And) ) = Shift 18 [red_6]
+action 21 ( HappyEOF ) = Reduce [red_6]
+action 22 ( HappyTok (And) ) = Shift 14 [red_15]
+action 22 ( HappyTok (Me) ) = Reduce [red_15]
+action 22 ( HappyTok (You) ) = Reduce [red_15]
+action 23 ( HappyTok ((:+:)) ) = Shift 29 []
+action 23 ( HappyTok (And) ) = Reduce [red_3]
+action 23 ( HappyEOF ) = Reduce [red_3]
+action 24 ( HappyTok ((:+:)) ) = Reduce [red_10]
+action 24 ( HappyTok (And) ) = Reduce [red_10]
+action 24 ( HappyEOF ) = Reduce [red_10]
+action 25 ( HappyTok ((:+:)) ) = Reduce [red_11]
+action 25 ( HappyTok (And) ) = Reduce [red_11]
+action 25 ( HappyEOF ) = Reduce [red_11]
+action 26 ( HappyTok (Me) ) = Shift 15 []
+action 26 ( HappyTok (You) ) = Shift 16 []
+action 27 ( HappyTok (One) ) = Reduce [red_19]
+action 27 ( HappyTok (Two) ) = Reduce [red_19]
+action 27 ( HappyTok (And) ) = Shift 26 [red_19]
+action 28 ( HappyTok (One) ) = Shift 24 []
+action 28 ( HappyTok (Two) ) = Shift 25 []
+action 29 ( HappyTok (One) ) = Reduce [red_16]
+action 29 ( HappyTok (Two) ) = Reduce [red_16]
+action 30 ( HappyTok ((:+:)) ) = Shift 29 [red_12]
+action 30 ( HappyTok (And) ) = Reduce [red_12]
+action 30 ( HappyEOF ) = Reduce [red_12]
 action _ _ = Error
 red_1 = (G_S,2 :: Int,semfn_0_0)
 red_2 = (G_S,2 :: Int,semfn_0_0)
-red_3 = (G_S,2 :: Int,semfn_1_0)
-red_4 = (G_S,2 :: Int,semfn_1_1)
-red_5 = (G_S,1 :: Int,semfn_2_0)
-red_6 = (G_S,2 :: Int,semfn_1_2)
-red_7 = (G_S,3 :: Int,semfn_3_0)
-red_8 = (G_Pred,1 :: Int,semfn_2_1)
-red_9 = (G_Noun,1 :: Int,semfn_2_2)
-red_10 = (G_Adverb,1 :: Int,semfn_2_3)
-red_11 = (G_Num,1 :: Int,semfn_2_4)
-red_12 = (G_Num,1 :: Int,semfn_2_5)
-red_13 = (G_Num,3 :: Int,semfn_4_0)
-red_14 = (G_Op,1 :: Int,semfn_2_6)
+red_3 = (G_S,3 :: Int,semfn_1_0)
+red_4 = (G_S,1 :: Int,semfn_2_0)
+red_5 = (G_S,2 :: Int,semfn_3_0)
+red_6 = (G_S,3 :: Int,semfn_4_0)
+red_7 = (G_Pred,1 :: Int,semfn_2_1)
+red_8 = (G_Noun,1 :: Int,semfn_2_2)
+red_9 = (G_Adverb,1 :: Int,semfn_2_3)
+red_10 = (G_Num,1 :: Int,semfn_2_4)
+red_11 = (G_Num,1 :: Int,semfn_2_5)
+red_12 = (G_Num,3 :: Int,semfn_1_1)
+red_13 = (G_Exe,1 :: Int,semfn_2_6)
+red_14 = (G_Exe,1 :: Int,semfn_2_7)
+red_15 = (G_Exe,3 :: Int,semfn_4_0)
+red_16 = (G_Op,1 :: Int,semfn_2_8)
+red_17 = (G_Player,1 :: Int,semfn_2_9)
+red_18 = (G_Player,1 :: Int,semfn_2_10)
+red_19 = (G_Player,3 :: Int,semfn_4_1)
 goto 0 G_S = 4
 goto 0 G_Pred = 2
 goto 0 G_Adverb = 5
+goto 0 G_Exe = 6
 
 goto 1 G_Pred = 2
 
-goto 2 G_Noun = 18
+goto 2 G_Noun = 19
 
-goto 5 G_S = 16
+goto 5 G_S = 17
 goto 5 G_Pred = 2
 goto 5 G_Adverb = 5
+goto 5 G_Exe = 6
 
-goto 6 G_Num = 15
+goto 6 G_Player = 13
 
-goto 8 G_Num = 12
+goto 11 G_S = 12
+goto 11 G_Pred = 2
+goto 11 G_Adverb = 5
+goto 11 G_Exe = 6
 
-goto 10 G_S = 11
-goto 10 G_Pred = 2
-goto 10 G_Adverb = 5
+goto 13 G_Num = 23
 
-goto 12 G_Op = 21
+goto 14 G_Exe = 22
 
-goto 15 G_Op = 21
+goto 18 G_S = 21
+goto 18 G_Pred = 2
+goto 18 G_Adverb = 5
+goto 18 G_Exe = 6
 
-goto 17 G_S = 20
-goto 17 G_Pred = 2
-goto 17 G_Adverb = 5
+goto 23 G_Op = 28
 
-goto 21 G_Num = 23
+goto 26 G_Player = 27
 
-goto 23 G_Op = 21
+goto 28 G_Num = 30
+
+goto 30 G_Op = 28
 
 goto _ _ = -1

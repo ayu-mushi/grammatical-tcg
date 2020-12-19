@@ -171,7 +171,7 @@ handToNumbers ::  Bool -> ClientValue -> S.StateT Game IO [Int]
 handToNumbers identifier clients = do
   h <- (^. ((selectPlayer identifier) . hands)) <$> S.get
 
-  printAsText identifier clients $ Message "手札から召喚する物を選択してください。召喚ボタンで召喚できます。"
+  printAsText identifier clients $ Message "手札から召喚するカードを選択してください。召喚ボタンで召喚できます。"
   printAsText identifier clients $ Hand h
   printAsText identifier clients RequireMonsterToSummon
 
@@ -209,22 +209,30 @@ inputAndParseLoop identifier clients = do
       liftIO $ threadDelay $ 1000*1000
       inputAndParseLoop identifier clients
 
-effectWhenSummoned :: (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m () -- TODO: 関心の分離
-effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
-  gameState <- S.get
-  let handsMaisu = length $ gameState ^. (selectPlayer turn . hands)
+evalPlayer  :: (MonadIO m) => MyTree Card -> ((Bool -> S.StateT Game m a) -> S.StateT Game m a)
+evalPlayer (Leaf Me) = \k -> k True
+evalPlayer (Leaf You) = \k -> k False
+evalPlayer (Node (Leaf And) [x, y]) = \k -> do
+  evalPlayer x k
+  evalPlayer y k
 
-  let how_many_card_you_trash = (evalFormula formula)
+effectWhenSummoned :: (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m () -- TODO: 関心の分離
+effectWhenSummoned turn clients (Node (Leaf Trash) [player', formula]) = evalPlayer player' $ \player -> do
+  gameState <- S.get
+  let target = player == turn
+      handsMaisu = length $ gameState ^. (selectPlayer target . hands)
+      how_many_card_you_trash = (evalFormula formula)
   printAsText turn clients $ Message $ "手札の枚数: " ++ show handsMaisu
-  printAsText turn clients $ Message $ "Trashの効果: 手札を" ++ show how_many_card_you_trash ++ "枚捨てる。"
+  printAsText turn clients $ Message $ "Trashの効果: " ++ (if player then "自分" else "相手" ) ++ "は手札を" ++ show how_many_card_you_trash ++ "枚捨てる。"
 
   replicateM_ how_many_card_you_trash $ do
-    (selectPlayer turn . hands) %= trashOne
-    liftIO $ threadDelay $ 1000*100
+    liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+    (selectPlayer target . hands) %= trashOne
+    liftIO $ threadDelay $ 1000*500
     liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
   gameState <- S.get
-  let handsMaisu = length $ gameState ^. (selectPlayer turn . hands)
+  let handsMaisu = length $ gameState ^. (selectPlayer target . hands)
 
   printAsText turn clients $ Message $ "手札の残り枚数: " ++ show handsMaisu
   where
@@ -232,23 +240,33 @@ effectWhenSummoned turn clients (Node (Leaf Trash) [formula]) = do
    trashOne (x:xs) = xs
 
 
-effectWhenSummoned turn clients (Node (Leaf Draw) [formula]) = do
+effectWhenSummoned turn clients (Node (Leaf Draw) [player', formula]) = evalPlayer player' $ \player -> do
+  let howManyCardDraw = (evalFormula formula)
+
+  let target = (player == turn)
+
   gameState <- S.get
-  let how_many_card_opponent_draw = (evalFormula formula)
+  let handsMaisu = length $ gameState ^. (selectPlayer target . hands)
+  printAsText turn clients $ Message $ "手札の更新前枚数: " ++ show handsMaisu
 
-  let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
-  printAsText turn clients $ Message $ "相手の手札の更新前枚数: " ++ show handsMaisu
+  printAsText turn clients $ Message $ "Drawの効果: "
+                            ++ (if player then "自分" else "相手")
+                              ++ "は手札を"
+                                 ++ show howManyCardDraw ++ "枚引く。"
 
-  printAsText turn clients $ Message $ "Drawの効果: 相手は手札を" ++ show how_many_card_opponent_draw ++ "枚引く。"
-
-  replicateM_ how_many_card_opponent_draw $ do
-    (selectPlayer (not turn)) %= S.execState drawToHand
-    liftIO $ threadDelay $ 1000*100
+  replicateM_ howManyCardDraw $ do
+    liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
+    selectPlayer target %= S.execState drawToHand
+    liftIO $ threadDelay $ 1000*500
     liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
   gameState <- S.get
-  let handsMaisu = length $ gameState ^. (selectPlayer (not turn) . hands)
-  printAsText turn clients $ Message $ "相手の手札の更新後枚数: " ++ show handsMaisu
+  let handsMaisu = length $ gameState ^. (selectPlayer target . hands)
+  printAsText turn clients $ Message $ "手札の更新後枚数: " ++ show handsMaisu
+
+effectWhenSummoned turn clients (Node (Node (Leaf And) [exe1, exe2]) [player, formula]) = do
+  effectWhenSummoned turn clients (Node exe1 [player, formula])
+  effectWhenSummoned turn clients (Node exe2 [player, formula])
 
 effectWhenSummoned turn clients (Node (Leaf Double) [sentence]) = do
   printAsText turn clients $ Message $ "Doubleの効果: " ++ showMyTree sentence++ "を2回行う。"
@@ -256,6 +274,7 @@ effectWhenSummoned turn clients (Node (Leaf Double) [sentence]) = do
   effectWhenSummoned turn clients sentence
   printAsText turn clients $ Message $ "2回目↑"
   effectWhenSummoned turn clients sentence
+
 
 effectWhenSummoned turn clients (Leaf Skip) = do
   gameState <- S.get
@@ -275,7 +294,7 @@ effectWhenSummoned turn clients monster = return ()
 
 
 routineEffect ::  (MonadIO m) => Bool -> ClientValue -> MyTree Card -> S.StateT Game m () -- TODO: 関心の分離
-routineEffect turn clients monster = undefined
+routineEffect turn clients monster = return ()
 
 
 gamePlay :: Bool -> ClientValue -> S.StateT Game IO ()
@@ -284,15 +303,18 @@ gamePlay identifier clients = do
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
   -- ドロー
+  printAsText identifier clients $ Message "ドロー"
+  liftIO $ threadDelay $ 1000* 500
   (selectPlayer identifier) %= S.execState drawToHand
 
 
   -- summon
+  -- パースに失敗した場合はもう一度要求する
   choices <- inputAndParseLoop identifier clients
 
   printAsText identifier clients $ Message "召喚するモンスターをクリックしてください。"
-  printAsText identifier clients $ Choice $ map (LazyT.unpack . treeToGraph) choices
-  ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier))
+  printAsText identifier clients $ Choice $ map (LazyT.unpack . treeToGraph) choices -- モンスターの選択肢を提示
+  ch <- S.lift $ fmap (read . T.unpack) $ WS.receiveData (fromJust $ clients^.(selectClient identifier)) -- 選択肢入力処理
 
   printAsText identifier clients $ Message "召喚する場所をクリックしてください"
   printAsText identifier clients WhereToPlace
@@ -315,7 +337,6 @@ gamePlay identifier clients = do
   liftIO $ broadcast clients $ Text.decodeUtf8 $ LB.toStrict $ Aeson.encode $ Refresh $ gameState
 
 
--- receiveDataしてパースに失敗した場合はもう一度要求する
 
 treeToGraph :: MyTree Card -> LazyT.Text
 treeToGraph tree = printDotGraph $ digraph' $ S.void $ treeToGraph' [0] tree

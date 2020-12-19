@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings#-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Game where
 
@@ -61,7 +62,7 @@ initDeck = do
   replicateM 40 $ do
     r <- randomRIO (0, 6) :: IO Int
     return $ toEnum r :: IO Card
-  return $ concat $ replicate 100 [(:+:),One,Two,Trash, Skip, Draw, Double,And]
+  return $ concat $ replicate 100 [(:+:),One,Two,Trash, Skip, Draw, Double,And, You, Me]
 
 
 -- カードを配る
@@ -120,6 +121,7 @@ evalFormula (Node (Leaf (:+:)) [formula1, formula2]) = (evalFormula formula1) + 
 evalFormula (Leaf One) = 1
 evalFormula (Leaf Two) = 2
 evalFormula x = error "is not formula"
+
 
 pick :: [Card] -> [Int] -> [Card]
 pick hands ix = map (hands!!) ix
