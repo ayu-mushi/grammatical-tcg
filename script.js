@@ -123,11 +123,13 @@ ws.onmessage = function (msg) {
     myself._hands.forEach(function(x, i){
       hand_card = $("<div id='hand-card"+i+"' class='hand-card'>"+x+"</div>").appendTo("#hand");
     });
+    $("#hand-number").text("(手札: "+myself._hands.length+" 枚)");
 
     $("#opponent-hand").empty();
     opponent._hands.forEach(function(x, i){
       hand_card = $("<div id='hand-card"+i+"' class='hand-card'>■</div>").appendTo("#opponent-hand");
     });
+    $("#opponent-hand-number").text("(手札: "+opponent._hands.length+"枚)");
 
   } else if(msg_analyzed.tag=="WhereToPlace"){
     $("#myself > .monster-zone > .zone").addClass("active");
