@@ -47,3 +47,5 @@ URLから、視聴者モードでログイン
 自己破壊効果デフォルト
 
 You and Me
+
+ WebSocket 

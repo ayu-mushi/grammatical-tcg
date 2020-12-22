@@ -3,7 +3,6 @@ module MyGrammer where
 import qualified Control.Monad.State as S
 import Basic
 }
-
 %name parseSentencePeriod
 %tokentype { Card }
 %error { parseError }
